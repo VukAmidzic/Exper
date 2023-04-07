@@ -66,7 +66,7 @@
 "<" { return LESS; }
 ">" { return GREAT; }
 "=" { return EQ; }
-"<>" { return NEQ; }
+"/=" { return NEQ; }
 "<=" { return LEQ; }
 ">=" { return GEQ; }
 

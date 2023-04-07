@@ -18,9 +18,10 @@ while (i < n) {
     i := i + 1;
 };
 
-/* This one writes all even numbers in the sequence of first 40 Fibonacci numbers 
+/* This one writes all even numbers in the sequence of first n Fibonacci numbers 
 
-n := 40;
+n := 0;
+scan(n);
 
 fst := 0; snd := 1;
 

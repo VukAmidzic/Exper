@@ -3,7 +3,7 @@ scan(number);
 
 sum := 0;
 
-while (number <> 0) {
+while (number /= 0) {
     number_mod := number % 10;
     sum := sum + number_mod;
     
