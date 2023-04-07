@@ -1,0 +1,267 @@
+%{
+    #include "AST_defs_funcs/ast.hpp"
+    #include <iostream>
+    #include <cstdlib>
+    #include <string>
+    #include <cstring>
+    #include <map>
+    #include <tuple>
+    #include <vector>
+    #include <utility>
+    #include <algorithm>
+    
+    #define YYDEBUG 1
+    #define YYERROR_VERBOSE 1
+    #define VARCHECK_ENABLE 1
+    
+    #define check_error(cond, msg) {\
+        if (!(cond)) {\
+            std::cerr << msg << std::endl;\
+            exit(EXIT_FAILURE);\
+        }\
+    }\
+    
+    extern FILE *yyin;
+    
+    extern int yylex();
+    extern int line_index;
+    void yyerror(std::string s) {
+        std::cerr << "Error in file " << __FILE__ << ", line " << line_index << ":\n";
+        std::cerr << s << std::endl;
+    }
+    
+    ASTNode* prog = nullptr;
+    static std::map<std::string, std::pair<int, int>> mp;
+    int var_counter = 4;
+    int main_counter = 0;
+    int loop_counter = 0;
+    int if_counter = 0;
+    int cond_counter = 0;
+%}
+
+%union {
+    std::string* id;
+    int number;
+    ASTNode* node;
+    std::vector<std::pair<ASTNode*, ASTNode*>>* els;
+    std::vector<ASTNode*>* elems;
+}
+
+%token<number> NUM
+%token<id> ID
+
+%type<node> expr E T F Q S P N
+%type<node> program stmts stmt print scan assign if_else while_stmt
+%type<els> else_stmt
+%type<elems> elems
+
+%left PLUS MINUS MUL DIV MOD
+%left SHR SHL 
+%right NOT UMINUS
+
+%token LP RP LCP RCP LQP RQP
+%token GREAT LESS EQ NEQ GEQ LEQ 
+%token AND OR NOT 
+%token SEMIC COMMA ASSIGN PRINT SCAN
+%token IF ELSE WHILE
+
+%start program
+%%
+program : stmts {
+            $$ = new MainNode(line_index, $1);
+            prog = $$;
+        }
+        | {};
+
+stmts   : stmt stmts {
+            auto stmt_node = dynamic_cast<StatementNode*>($1);
+            
+            if (stmt_node) {
+                stmt_node->next = $2;
+                $$ = stmt_node;
+            }
+            else {
+                yyerror("Error: not a statement node...");
+                exit(EXIT_FAILURE);
+            }
+        } 
+        | stmt { $$ = $1; };
+
+stmt    : assign SEMIC { $$ = $1; }
+        | print SEMIC { $$ = $1; }
+        | scan SEMIC { $$ = $1; }
+        | if_else SEMIC { $$ = $1; }
+        | while_stmt SEMIC { $$ = $1; };
+
+while_stmt  : WHILE LP expr RP LCP stmts RCP {
+                $$ = new WhileNode(line_index, 0, 0, $3, $6, nullptr);
+            };
+
+if_else : IF LP expr RP LCP stmts RCP {
+            std::vector<std::pair<ASTNode*, ASTNode*>> _conds;
+            _conds.push_back({$3, $6});
+            std::vector<int> tmp = {};
+            $$ = new IfElseNode(line_index, 0, 0, _conds, tmp, nullptr);
+        }
+        | IF LP expr RP LCP stmts RCP else_stmt {
+            std::vector<int> tmp = {};
+            $$ = new IfElseNode(line_index, 0, 0, *$8, tmp, nullptr);
+            
+            auto* if_else_node = dynamic_cast<IfElseNode*>($$);
+            
+            if (if_else_node) {
+                if_else_node->conds.push_back({$3, $6});
+                $$ = if_else_node;
+            }
+            else {
+                yyerror("Error during if-else...");
+                exit(EXIT_FAILURE);
+            }
+        };
+
+else_stmt   : ELSE IF LP expr RP LCP stmts RCP else_stmt {
+                $$ = $9;
+                $$->push_back({$4, $7});
+            }
+            | ELSE LCP stmts RCP {
+                $$ = new std::vector<std::pair<ASTNode*, ASTNode*>>();
+                $$->push_back({nullptr, $3});
+            };
+
+assign  : ID ASSIGN expr {
+            $$ = new AssignNode(line_index, *$1, $3, nullptr);
+            delete $1;
+        }
+        | ID LQP NUM RQP ASSIGN expr {
+            std::string name = "@";
+            name = ((name.append(*$1)).append("_")).append(std::to_string($3));
+            
+            $$ = new AssignNode(line_index, name, $6, nullptr);
+        }
+        | ID LQP RQP ASSIGN LCP elems RCP {
+            std::vector<ASTNode*> arr = *$6;
+            std::reverse(arr.begin(), arr.end());
+            
+            std::string name = "@";
+            name = name.append(*$1);
+            
+            std::vector<AssignNode*> tmp;
+            
+            for (int i = 0; i < (int)arr.size(); ++i) {
+                std::string tmp_name = name;
+                AssignNode* new_node = new AssignNode(line_index, tmp_name.append("_" + std::to_string(i)), arr[i], nullptr);
+                tmp.push_back(new_node);
+            }
+            
+            $$ = new ArrayAssignNode(line_index, tmp, nullptr);
+            
+            delete $1;
+        }
+        | ID LQP RQP ASSIGN LQP NUM SEMIC expr RQP {
+            std::string name = "@";
+            name = name.append(*$1);
+            
+            std::vector<AssignNode*> tmp;
+            
+            for (int i = 0; i < $6; ++i) {
+                std::string tmp_name = name;
+                AssignNode* new_node = new AssignNode(line_index, tmp_name.append("_" + std::to_string(i)), $8, nullptr);
+                tmp.push_back(new_node);
+            }
+            
+            $$ = new ArrayAssignNode(line_index, tmp, nullptr);
+            
+            delete $1;
+        };
+
+elems   : expr COMMA elems {
+            $3->push_back($1);
+            $$ = $3;
+        }
+        | expr {
+            $$ = new std::vector<ASTNode*>();
+            $$->push_back($1);
+        };
+
+print   : PRINT LP expr RP {
+            $$ = new PrintNode(line_index, $3, nullptr);
+        };
+
+scan    : SCAN LP ID RP {
+            $$ = new ScanNode(line_index, *$3, nullptr);
+            delete $3;
+        };
+
+expr    : E { $$ = $1; }
+        | {};
+
+E   : E AND T { $$ = new BinaryNode(line_index, _AND_, $1, $3); }
+    | E OR T { $$ = new BinaryNode(line_index, _OR_, $1, $3); }
+    | NOT T { $$ = new BinaryNode(line_index, _NOT_, nullptr, $2); }
+    | T { $$ = $1; };
+
+T   : T LESS F { $$ = new BinaryNode(line_index, _LESS_, $1, $3); }
+    | T GREAT F { $$ = new BinaryNode(line_index, _GREAT_, $1, $3); }
+    | T EQ F { $$ = new BinaryNode(line_index, _EQ_, $1, $3); }
+    | T NEQ F { $$ = new BinaryNode(line_index, _NEQ_, $1, $3); }
+    | T LEQ F { $$ = new BinaryNode(line_index, _LEQ_, $1, $3); }
+    | T GEQ F { $$ = new BinaryNode(line_index, _GEQ_, $1, $3); }
+    | F { $$ = $1; };
+
+F   : F SHR Q { $$ = new BinaryNode(line_index, _SHR_, $1, $3); }
+    | F SHL Q { $$ = new BinaryNode(line_index, _SHL_, $1, $3); }
+    | Q { $$ = $1; };
+
+Q   : Q PLUS S { $$ = new BinaryNode(line_index, _ADD_, $1, $3); }
+    | Q MINUS S { $$ = new BinaryNode(line_index, _SUB_, $1, $3); }
+    | S { $$ = $1; };
+
+S   : S MUL P { $$ = new BinaryNode(line_index, _MUL_, $1, $3); }
+    | S DIV P { $$ = new BinaryNode(line_index, _DIV_, $1, $3); }
+    | S MOD P { $$ = new BinaryNode(line_index, _MOD_, $1, $3); }
+    | P { $$ = $1; };
+
+P   : MINUS N %prec UMINUS { $$ = new BinaryNode(line_index, _NEG_, nullptr, $2); }
+    | N { $$ = $1; };
+
+N   : LP E RP { $$ = $2; }
+    | NUM { $$ = new NumNode(line_index, $1); }
+    | ID {
+        $$ = new VarNode(line_index, *$1);
+        delete $1;
+    }
+    | ID LQP NUM RQP {
+        std::string name = "@";
+        name += *$1;
+        name += "_" + std::to_string($3);
+        
+        $$ = new VarNode(line_index, name);
+        delete $1;
+    };
+%%
+
+int main(int argc, char** argv) {
+    check_error(argc == 2, "Incorrect number of arguments...");
+    
+    yyin = fopen(argv[1], "r");
+    check_error(yyin != NULL, "Could not open given input file...");
+    yydebug = 0;
+    
+    //check_error(yyparse() != 1, "");
+    yyparse();
+    
+    traverse_tree(prog, mp, &var_counter, &loop_counter, &if_counter, &cond_counter, &main_counter);
+    
+    int varcheck_enabled = VARCHECK_ENABLE;
+    if (varcheck_enabled) {
+        std::tuple<std::string, bool, int> res = var_checker(prog, mp);
+        if (!std::get<1>(res)) {
+            std::cerr << "Error (" << argv[1] << ", line " << std::get<2>(res) << "):" << std::endl;
+            std::cerr << "Variable '" << std::get<0>(res) << "' not defined!!" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+    print_asm(prog, mp);
+    
+    exit(EXIT_SUCCESS);
+}

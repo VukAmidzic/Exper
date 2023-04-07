@@ -1,0 +1,43 @@
+n := 0;
+scan(n);
+
+fst := 0; snd := 1;
+
+i := 2;
+
+/* This one writes first 40 Fibonacci numbers */
+print(fst);
+print(snd);
+
+while (i < n) {
+    curr := fst + snd;
+    print(curr);
+
+    fst := snd;
+    snd := curr;
+    i := i + 1;
+};
+
+/* This one writes all even numbers in the sequence of first 40 Fibonacci numbers 
+
+n := 40;
+
+fst := 0; snd := 1;
+
+i := 2;
+
+print(fst);
+
+while (i < n) {
+    curr := fst + snd;
+    
+    if (curr % 2 = 0) {
+        print(curr);
+    };
+
+    fst := snd;
+    snd := curr;
+    i := i + 1;
+};
+
+*/
