@@ -5,8 +5,7 @@ This is a personal hobby-made language written in C++ together with Flex/Bison t
 	graph TB
 		S1:::mainClass
 		S2:::mainClass
-		S3:::mainClass
-		S1 -.-> S2 -.-> S3
+		S1 -.-> S2
 		classDef mainClass font-size: 17px;
 
 		subgraph S1["Frontend"]
@@ -14,16 +13,11 @@ This is a personal hobby-made language written in C++ together with Flex/Bison t
 			A(Source code) --Lexer--> B(Words)
 			B(Words) --Parser--> C(AST)
 		end
-		subgraph S2["Middle end"]
+		subgraph S2["Middle end and backend"]
 			direction TB;
-			D(AST) --Semantic analysis-->E(Data-flow graph)
-		end
-		subgraph S3["Backend"]
-			direction TB;
-			F(Data-flow graph) --Traversing graph--> G(Machine code)
+			D(AST) --Semantic analysis & graph traversing-->E(Machine code)
 		end
 ```
-(Note: previous picture shows how it looks like in theory. In this language, AST and data-flow graph are the same tree-like structure, with variables-checker and assembly-printing functions traversing it. Also, there is no IR; everything is being literally translated into assembly).
 
 ## Some info
 
@@ -52,7 +46,7 @@ source build.sh
 ```
 This will create the parser. In order to run your code, you need to type a command that looks like 
 ```
-fkc file_name.fkc executable_name
+exp file_name.fkc executable_name
 ```
 This will run the parser and compiler and translate your program to assembly file, which will later on be translated to an executable file. At the end, you can run your program by typing ```./executable_name``` .
 If you want to enable/disable variable-checking function, you can type ```enable``` or ```disable``` with the ```--var-check``` option.
