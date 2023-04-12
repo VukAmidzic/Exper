@@ -3,12 +3,12 @@
 %option noinput
 %x comment 
 %{
+    #include "ast/ast.hpp"
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
     #include <vector>
     #include <utility>
-    #include "AST_defs_funcs/ast.hpp"
     #include "parser.tab.hpp"
     
     int line_index = 1;

@@ -9,9 +9,7 @@
 #include <tuple>
 #include <vector>
 #include <utility>
-
-const int VAR_STEP = 4;
-bool first_scan = true;
+int var_counter = 4;
 
 NumNode::NumNode(int _line_index, int _num) { line_index = _line_index; num = _num; };
 
@@ -36,11 +34,14 @@ AssignNode::AssignNode(int _line_index, std::string _var_name, ASTNode* _assign_
     next = _next;
 };
 
-ArrayAssignNode::ArrayAssignNode(int _line_index, std::vector<AssignNode*> _assigns, ASTNode* _next) {
+ArrayDeclNode::ArrayDeclNode(int _line_index, std::string _arr_name, int _arr_size, 
+    std::vector<ASTNode*> _arr_vals, ASTNode* _next) {
     line_index = _line_index;
-    assigns = _assigns;
+    arr_name = _arr_name;
+    arr_size = _arr_size;
+    arr_vals = _arr_vals;
     next = _next;
-};
+}
 
 PrintNode::PrintNode(int _line_index, ASTNode* _print_val, ASTNode* _next) {
     line_index = _line_index;
@@ -72,27 +73,27 @@ WhileNode::WhileNode(int _line_index, int _while_num, int _main_num, ASTNode* _c
     next = _next;
 };
 
-void traverse_tree(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp, int* var_counter, 
+void traverse_tree(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp, 
     int* loop_counter, int* if_counter, int* cond_counter, int* main_counter) {
     auto* num_node = dynamic_cast<NumNode*>(ptr);
     auto* var_node = dynamic_cast<VarNode*>(ptr);
     auto* bin_op_node = dynamic_cast<BinaryNode*>(ptr);
     auto* main_node = dynamic_cast<MainNode*>(ptr);
     auto* assign_node = dynamic_cast<AssignNode*>(ptr);
-    auto* arr_assign_node = dynamic_cast<ArrayAssignNode*>(ptr);
     auto* print_node = dynamic_cast<PrintNode*>(ptr);
     auto* scan_node = dynamic_cast<ScanNode*>(ptr);
+    auto* arrDecl_node = dynamic_cast<ArrayDeclNode*>(ptr);
     auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
     auto* while_node = dynamic_cast<WhileNode*>(ptr);
     
     if (num_node) { return; }
     else if (var_node) { return; }
     else if (bin_op_node) {
-        traverse_tree(bin_op_node->left, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(bin_op_node->right, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(bin_op_node->left, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(bin_op_node->right, mp, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (main_node) {
-        traverse_tree(main_node->next, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(main_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (assign_node) {
         int tmp = expr_eval(assign_node->assign_val, mp);
@@ -101,23 +102,31 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp,
             mp[assign_node->var_name].first = tmp;
         }
         else {
-            mp[assign_node->var_name] = {tmp, *var_counter};
-            *var_counter += VAR_STEP;
+            mp[assign_node->var_name] = {tmp, var_counter};
+            var_counter += VAR_STEP;
         }
         
-        traverse_tree(assign_node->next, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
-    }
-    else if (arr_assign_node) {
-        for (auto it : arr_assign_node->assigns) {
-            traverse_tree(it, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
-        }
-        traverse_tree(arr_assign_node->next, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(assign_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (print_node) {
-        traverse_tree(print_node->next, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(print_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (scan_node) {
-        traverse_tree(scan_node->next, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(scan_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
+    }
+    else if (arrDecl_node) {
+        for (int i = 0; i < arrDecl_node->arr_size; ++i) {
+            traverse_tree(arrDecl_node->arr_vals[i], mp, loop_counter, if_counter, cond_counter, main_counter);
+            
+            std::string elem_name = arrDecl_node->arr_name + std::to_string(i);
+            int elem_val = expr_eval(arrDecl_node->arr_vals[i], mp);
+            
+            mp[elem_name] = {elem_val, var_counter};
+            var_counter += VAR_STEP;
+        }
+        
+        traverse_tree(arrDecl_node->next, mp, loop_counter, if_counter, cond_counter,
+        main_counter);
     }
     else if (if_else_node) {
         int n = if_else_node->conds.size();
@@ -139,16 +148,16 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp,
             std::cout << std::endl;
             */
             
-            traverse_tree(if_else_node->conds[0].first, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
-            traverse_tree(if_else_node->conds[0].second, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
-            traverse_tree(if_else_node->next, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->conds[0].first, mp, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->conds[0].second, mp, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
         }
         else {
             if_else_node->if_num = *if_counter;
             if_else_node->main_num = *main_counter;
             for (int i = 1; i < n; ++i) {
                 if_else_node->cond_num.push_back(*cond_counter + i - 1);
-                traverse_tree(if_else_node->conds[i].first, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+                traverse_tree(if_else_node->conds[i].first, mp, loop_counter, if_counter, cond_counter, main_counter);
             }
             if_else_node->cond_num.push_back(*cond_counter + n - 1);
             *cond_counter += n;
@@ -156,9 +165,9 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp,
             
             for (int i = 1; i < n; ++i) {
                 *if_counter += 1;
-                traverse_tree(if_else_node->conds[i].second, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+                traverse_tree(if_else_node->conds[i].second, mp, loop_counter, if_counter, cond_counter, main_counter);
             }
-            traverse_tree(if_else_node->conds[0].second, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->conds[0].second, mp, loop_counter, if_counter, cond_counter, main_counter);
             
             /*std::cout << "#IF-ELSE:" << if_else_node->if_num << std::endl;
             std::cout << "#CONDS: ";
@@ -168,7 +177,7 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp,
             std::cout << std::endl;
             */
             
-            traverse_tree(if_else_node->next, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
         }
     }
     else if (while_node) {
@@ -179,9 +188,9 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp,
             
         //std::cout << "#LOOP: " << while_node->while_num << std::endl;
         
-        traverse_tree(while_node->cond, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(while_node->stmts, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(while_node->next, mp, var_counter, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(while_node->cond, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(while_node->stmts, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(while_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
     }
     else { return; }
 };
@@ -278,9 +287,9 @@ std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::strin
     auto* bin_op_node = dynamic_cast<BinaryNode*>(ptr);
     auto* main_node = dynamic_cast<MainNode*>(ptr);
     auto* assign_node = dynamic_cast<AssignNode*>(ptr);
-    auto* arr_assign_node = dynamic_cast<ArrayAssignNode*>(ptr);
     auto* print_node = dynamic_cast<PrintNode*>(ptr);
     auto* scan_node = dynamic_cast<ScanNode*>(ptr);
+    auto* arrDecl_node = dynamic_cast<ArrayDeclNode*>(ptr);
     auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
     auto* while_node = dynamic_cast<WhileNode*>(ptr);
     
@@ -306,18 +315,6 @@ std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::strin
         else if (!std::get<1>(next)) return {std::get<0>(next), false, std::get<2>(next)};
         else return {"", true, -1};
     }
-    else if (arr_assign_node) {
-        std::tuple<std::string, bool, int> next = var_checker(arr_assign_node->next, mp);
-        if (!std::get<1>(next)) return {std::get<0>(next), false, std::get<2>(next)};
-        
-        std::tuple<std::string, bool, int> tmp;
-        for (auto it : arr_assign_node->assigns) {
-            tmp = var_checker(it, mp);
-            if (!std::get<1>(tmp)) return {std::get<0>(tmp), false, std::get<2>(tmp)};
-        }
-        
-        return {"", true, -1};
-    }
     else if (print_node) {
         std::tuple<std::string, bool, int> val = var_checker(print_node->print_val, mp);
         std::tuple<std::string, bool, int> next = var_checker(print_node->next, mp);
@@ -331,6 +328,9 @@ std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::strin
         if (!std::get<1>(next)) return {std::get<0>(next), false, std::get<2>(next)};
         else if (mp.find(scan_node->var_name) == mp.end()) return {scan_node->var_name, false, scan_node->line_index};
         else return {"", true, -1};
+    }
+    else if (arrDecl_node) {
+        return var_checker(arrDecl_node->next, mp);
     }
     else if (if_else_node) {
         std::tuple<std::string, bool, int> next = var_checker(if_else_node->next, mp);
@@ -367,7 +367,7 @@ std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::strin
 int get_first_divby_16(int n) {
     int factor = 1;
     
-    while (16 * factor <= n) factor++;
+    while (16 * factor <= 2*n) factor++;
     
     return 16*factor;
 }
@@ -378,9 +378,9 @@ void print_asm(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp) {
     auto* bin_op_node = dynamic_cast<BinaryNode*>(ptr);
     auto* main_node = dynamic_cast<MainNode*>(ptr);
     auto* assign_node = dynamic_cast<AssignNode*>(ptr);
-    auto* arr_assign_node = dynamic_cast<ArrayAssignNode*>(ptr);
     auto* print_node = dynamic_cast<PrintNode*>(ptr);
     auto* scan_node = dynamic_cast<ScanNode*>(ptr);
+    auto* arrDecl_node = dynamic_cast<ArrayDeclNode*>(ptr);
     auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
     auto* while_node = dynamic_cast<WhileNode*>(ptr);
     
@@ -562,7 +562,7 @@ void print_asm(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp) {
         std::cout << ".text\n" << std::endl;
         std::cout << ".global main" << std::endl;
         std::cout << "main:" << std::endl;
-        std::cout << "  enter " << get_first_divby_16((int)8*mp.size()) << ", 0" << std::endl;
+        std::cout << "  enter " << get_first_divby_16(var_counter) << ", 0" << std::endl;
         print_asm(main_node->next, mp);
         std::cout << "  leave" << std::endl;
         std::cout << "  ret\n\n" << std::endl;
@@ -575,12 +575,6 @@ void print_asm(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp) {
         print_asm(assign_node->assign_val, mp);
         std::cout << "  mov QWORD PTR [rbp-" << 2 * mp[assign_node->var_name].second << "], rax" << std::endl;
         print_asm(assign_node->next, mp);
-    }
-    else if (arr_assign_node) {
-        for (auto it : arr_assign_node->assigns) {
-            print_asm(it, mp);
-        }
-        print_asm(arr_assign_node->next, mp);
     }
     else if (print_node) {
         print_asm(print_node->print_val, mp);
@@ -596,6 +590,16 @@ void print_asm(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp) {
         std::cout << "  xor rax, rax" << std::endl;
         std::cout << "  call scanf" << std::endl;
         print_asm(scan_node->next, mp);
+    }
+    else if (arrDecl_node) {
+        for (int i = 0; i < arrDecl_node->arr_size; ++i) {
+            print_asm(arrDecl_node->arr_vals[i], mp);
+            
+            std::string elem_name = arrDecl_node->arr_name + std::to_string(i);
+            std::cout << "  mov QWORD PTR [rbp-" << 2 * mp[elem_name].second << "], rax" << std::endl;
+        }
+        
+        print_asm(arrDecl_node->next, mp);
     }
     else if (if_else_node) {
         auto* next_if_else = dynamic_cast<IfElseNode*>(if_else_node->next);

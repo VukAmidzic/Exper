@@ -1,5 +1,5 @@
 %{
-    #include "AST_defs_funcs/ast.hpp"
+    #include "ast/ast.hpp"
     #include <iostream>
     #include <cstdlib>
     #include <string>
@@ -32,7 +32,7 @@
     
     ASTNode* prog = nullptr;
     static std::map<std::string, std::pair<int, int>> mp;
-    int var_counter = 4;
+    extern int var_counter;
     int main_counter = 0;
     int loop_counter = 0;
     int if_counter = 0;
@@ -139,40 +139,28 @@ assign  : ID ASSIGN expr {
             $$ = new AssignNode(line_index, name, $6, nullptr);
         }
         | ID LQP RQP ASSIGN LCP elems RCP {
-            std::vector<ASTNode*> arr = *$6;
-            std::reverse(arr.begin(), arr.end());
+            std::vector<ASTNode*> arr_vals = *$6;
+            std::reverse(arr_vals.begin(), arr_vals.end());
             
-            std::string name = "@";
-            name = name.append(*$1);
+            std::string arr_name = "@";
+            arr_name = arr_name.append(*$1) + "_";
             
-            std::vector<AssignNode*> tmp;
+            int arr_size = arr_vals.size();
             
-            for (int i = 0; i < (int)arr.size(); ++i) {
-                std::string tmp_name = name;
-                AssignNode* new_node = new AssignNode(line_index, tmp_name.append("_" + std::to_string(i)), arr[i], nullptr);
-                tmp.push_back(new_node);
-            }
-            
-            $$ = new ArrayAssignNode(line_index, tmp, nullptr);
-            
-            delete $1;
-        }
-        | ID LQP RQP ASSIGN LQP NUM SEMIC expr RQP {
-            std::string name = "@";
-            name = name.append(*$1);
-            
-            std::vector<AssignNode*> tmp;
-            
-            for (int i = 0; i < $6; ++i) {
-                std::string tmp_name = name;
-                AssignNode* new_node = new AssignNode(line_index, tmp_name.append("_" + std::to_string(i)), $8, nullptr);
-                tmp.push_back(new_node);
-            }
-            
-            $$ = new ArrayAssignNode(line_index, tmp, nullptr);
+            $$ = new ArrayDeclNode(line_index, arr_name, arr_size, arr_vals, nullptr);
             
             delete $1;
         };
+        /*| ID LQP RQP ASSIGN LQP expr SEMIC expr RQP {
+            std::string arr_name = "@";
+            arr_name = arr_name.append(*$1) + "_";
+            
+        
+            
+            $$ = new ArrayDeclNode(line_index, arr_name, $6, {$8}, nullptr);
+            
+            delete $1;
+        };*/
 
 elems   : expr COMMA elems {
             $3->push_back($1);
@@ -247,17 +235,16 @@ int main(int argc, char** argv) {
     check_error(yyin != NULL, "Could not open given input file...");
     yydebug = 0;
     
-    //check_error(yyparse() != 1, "");
     yyparse();
     
-    traverse_tree(prog, mp, &var_counter, &loop_counter, &if_counter, &cond_counter, &main_counter);
+    traverse_tree(prog, mp, &loop_counter, &if_counter, &cond_counter, &main_counter);
     
     int varcheck_enabled = VARCHECK_ENABLE;
     if (varcheck_enabled) {
         std::tuple<std::string, bool, int> res = var_checker(prog, mp);
         if (!std::get<1>(res)) {
             std::cerr << "Error (" << argv[1] << ", line " << std::get<2>(res) << "):" << std::endl;
-            std::cerr << "Variable '" << std::get<0>(res) << "' not defined!!" << std::endl;
+            std::cerr << "Unknown variable '" << std::get<0>(res) << "'" << std::endl;
             exit(EXIT_FAILURE);
         }
     }

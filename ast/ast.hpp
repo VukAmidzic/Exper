@@ -9,6 +9,8 @@
 #ifndef AST_HPP
 #define AST_HPP
 
+const int VAR_STEP = 4;
+
 enum Tag {
     _ADD_, _SUB_, _MUL_, _DIV_,
     _MOD_, _SHL_, _SHR_, _LESS_,
@@ -71,12 +73,17 @@ public:
     );
 };
 
-class ArrayAssignNode : public StatementNode {
+class ArrayDeclNode : public StatementNode {
 public:
-    std::vector<AssignNode*> assigns;  
-    ArrayAssignNode(
+    std::string arr_name;
+    int arr_size;
+    std::vector<ASTNode*> arr_vals;
+    
+    ArrayDeclNode(
         int _line_index,
-        std::vector<AssignNode*> _assigns,  
+        std::string _arr_name,
+        int _arr_size,
+        std::vector<ASTNode*> _arr_vals,
         ASTNode* _next
     );
 };
@@ -135,8 +142,8 @@ public:
 
 int expr_eval(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp);
 
-void traverse_tree(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp, int* var_counter, 
-                   int* loop_counter, int* if_counter, int* cond_counter, int* main_counter);
+void traverse_tree(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp, 
+    int* loop_counter, int* if_counter, int* cond_counter, int* main_counter);
 
 std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp);
 
