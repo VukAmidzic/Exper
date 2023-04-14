@@ -37,6 +37,12 @@ public:
     VarNode(int _line_index, std::string _var_name);
 };
 
+class ArrayElemNode : public ASTNode {
+public:
+    ASTNode* elem_index;
+    ArrayElemNode(int _line_index, ASTNode* _elem_index);
+};
+
 class BinaryNode : public ASTNode {
 public: 
     Tag tag;
@@ -84,6 +90,18 @@ public:
         std::string _arr_name,
         int _arr_size,
         std::vector<ASTNode*> _arr_vals,
+        ASTNode* _next
+    );
+};
+
+class ArrayElemAssignNode : public StatementNode {
+public:
+    ASTNode* elem_index;
+    ASTNode* assign_val;
+    ArrayElemAssignNode(
+        int _line_index,
+        ASTNode* _elem_index,
+        ASTNode* _assign_val,
         ASTNode* _next
     );
 };
@@ -140,13 +158,15 @@ public:
     );
 };
 
-int expr_eval(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp);
+int expr_eval(ASTNode* ptr, std::map<std::string, int>& mp);
 
-void traverse_tree(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp, 
+void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, 
     int* loop_counter, int* if_counter, int* cond_counter, int* main_counter);
 
-std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp);
+std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::string, int>& mp);
 
-void print_asm(ASTNode* ptr, std::map<std::string, std::pair<int, int>>& mp);
+void num_of_scans(ASTNode* ptr, int num);
+
+void print_asm(ASTNode* ptr, std::map<std::string, int>& mp);
 
 #endif

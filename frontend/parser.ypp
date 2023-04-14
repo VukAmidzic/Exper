@@ -31,7 +31,7 @@
     }
     
     ASTNode* prog = nullptr;
-    static std::map<std::string, std::pair<int, int>> mp;
+    static std::map<std::string, int> mp;
     extern int var_counter;
     int main_counter = 0;
     int loop_counter = 0;
@@ -132,11 +132,8 @@ assign  : ID ASSIGN expr {
             $$ = new AssignNode(line_index, *$1, $3, nullptr);
             delete $1;
         }
-        | ID LQP NUM RQP ASSIGN expr {
-            std::string name = "@";
-            name = ((name.append(*$1)).append("_")).append(std::to_string($3));
-            
-            $$ = new AssignNode(line_index, name, $6, nullptr);
+        | ID LQP expr RQP ASSIGN expr {
+            $$ = new ArrayElemAssignNode(line_index, $3, $6, nullptr);
         }
         | ID LQP RQP ASSIGN LCP elems RCP {
             std::vector<ASTNode*> arr_vals = *$6;
@@ -151,16 +148,6 @@ assign  : ID ASSIGN expr {
             
             delete $1;
         };
-        /*| ID LQP RQP ASSIGN LQP expr SEMIC expr RQP {
-            std::string arr_name = "@";
-            arr_name = arr_name.append(*$1) + "_";
-            
-        
-            
-            $$ = new ArrayDeclNode(line_index, arr_name, $6, {$8}, nullptr);
-            
-            delete $1;
-        };*/
 
 elems   : expr COMMA elems {
             $3->push_back($1);
@@ -218,12 +205,8 @@ N   : LP E RP { $$ = $2; }
         $$ = new VarNode(line_index, *$1);
         delete $1;
     }
-    | ID LQP NUM RQP {
-        std::string name = "@";
-        name += *$1;
-        name += "_" + std::to_string($3);
-        
-        $$ = new VarNode(line_index, name);
+    | ID LQP expr RQP {
+        $$ = new ArrayElemNode(line_index, $3);
         delete $1;
     };
 %%
