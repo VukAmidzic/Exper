@@ -15,8 +15,9 @@ NumNode::NumNode(int _line_index, int _num) { line_index = _line_index; num = _n
 
 VarNode::VarNode(int _line_index, std::string _var_name) { line_index = _line_index; var_name = _var_name; };
 
-ArrayElemNode::ArrayElemNode(int _line_index, ASTNode* _elem_index) {
+ArrayElemNode::ArrayElemNode(int _line_index, std::string _arr_name, ASTNode* _elem_index) {
     line_index = _line_index;
+    arr_name = _arr_name;
     elem_index = _elem_index;
 };
 
@@ -48,9 +49,10 @@ ArrayDeclNode::ArrayDeclNode(int _line_index, std::string _arr_name, int _arr_si
     next = _next;
 }
 
-ArrayElemAssignNode::ArrayElemAssignNode(int _line_index, ASTNode* _elem_index, 
+ArrayElemAssignNode::ArrayElemAssignNode(int _line_index, std::string _arr_name, ASTNode* _elem_index, 
     ASTNode* _assign_val, ASTNode* _next) {
     line_index = _line_index;
+    arr_name = _arr_name;
     elem_index = _elem_index;
     assign_val = _assign_val;
     next = _next;
@@ -86,7 +88,7 @@ WhileNode::WhileNode(int _line_index, int _while_num, int _main_num, ASTNode* _c
     next = _next;
 };
 
-void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, 
+void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, int>& arrs, 
     int* loop_counter, int* if_counter, int* cond_counter, int* main_counter) {
     auto* num_node = dynamic_cast<NumNode*>(ptr);
     auto* var_node = dynamic_cast<VarNode*>(ptr);
@@ -104,14 +106,14 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp,
     if (num_node) { return; }
     else if (var_node) { return; }
     else if (arrElem_node) {
-        traverse_tree(arrElem_node->elem_index, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(arrElem_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (bin_op_node) {
-        traverse_tree(bin_op_node->left, mp, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(bin_op_node->right, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(bin_op_node->left, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(bin_op_node->right, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (main_node) {
-        traverse_tree(main_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(main_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (assign_node) {
         auto it = mp.find(assign_node->var_name);
@@ -120,20 +122,23 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp,
             var_counter += VAR_STEP;
         }
         
-        traverse_tree(assign_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(assign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (arrElemAssign_node) {
-        traverse_tree(arrElemAssign_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(arrElemAssign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (print_node) {
-        traverse_tree(print_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(print_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (scan_node) {
-        traverse_tree(scan_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(scan_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (arrDecl_node) {
+        auto it = arrs.find(arrDecl_node->arr_name);
+        if (it == arrs.end()) { arrs[arrDecl_node->arr_name] = var_counter; }
+        
         for (int i = 0; i < arrDecl_node->arr_size; ++i) {
-            traverse_tree(arrDecl_node->arr_vals[i], mp, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(arrDecl_node->arr_vals[i], mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
             
             std::string elem_name = arrDecl_node->arr_name + std::to_string(i);
             
@@ -141,7 +146,7 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp,
             var_counter += VAR_STEP;
         }
         
-        traverse_tree(arrDecl_node->next, mp, loop_counter, if_counter, cond_counter,
+        traverse_tree(arrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter,
         main_counter);
     }
     else if (if_else_node) {
@@ -156,16 +161,16 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp,
             *main_counter += 1;
             *cond_counter += 1;
             
-            traverse_tree(if_else_node->conds[0].first, mp, loop_counter, if_counter, cond_counter, main_counter);
-            traverse_tree(if_else_node->conds[0].second, mp, loop_counter, if_counter, cond_counter, main_counter);
-            traverse_tree(if_else_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->conds[0].first, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->conds[0].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
         }
         else {
             if_else_node->if_num = *if_counter;
             if_else_node->main_num = *main_counter;
             for (int i = 1; i < n; ++i) {
                 if_else_node->cond_num.push_back(*cond_counter + i - 1);
-                traverse_tree(if_else_node->conds[i].first, mp, loop_counter, if_counter, cond_counter, main_counter);
+                traverse_tree(if_else_node->conds[i].first, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
             }
             if_else_node->cond_num.push_back(*cond_counter + n - 1);
             *cond_counter += n;
@@ -173,11 +178,11 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp,
             
             for (int i = 1; i < n; ++i) {
                 *if_counter += 1;
-                traverse_tree(if_else_node->conds[i].second, mp, loop_counter, if_counter, cond_counter, main_counter);
+                traverse_tree(if_else_node->conds[i].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
             }
-            traverse_tree(if_else_node->conds[0].second, mp, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->conds[0].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
             
-            traverse_tree(if_else_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
         }
     }
     else if (while_node) {
@@ -186,9 +191,9 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp,
         *loop_counter += 1;    
         *main_counter += 1;
         
-        traverse_tree(while_node->cond, mp, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(while_node->stmts, mp, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(while_node->next, mp, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(while_node->cond, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(while_node->stmts, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(while_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
     }
     else { return; }
 };
@@ -356,7 +361,15 @@ void num_of_scans(ASTNode* ptr, int* num) {
     else { return; }
 };
 
-void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
+int get_size(int n) {
+    int i = 16;
+    
+    while (i <= n) i += 16;
+    
+    return i;
+}
+
+void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, int>& arrs) {
     auto* num_node = dynamic_cast<NumNode*>(ptr);
     auto* var_node = dynamic_cast<VarNode*>(ptr);
     auto* arrElem_node = dynamic_cast<ArrayElemNode*>(ptr);
@@ -377,27 +390,27 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
         std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * mp[var_node->var_name] << "]" << std::endl;
     }
     else if (arrElem_node) {
-        print_asm(arrElem_node->elem_index, mp);
-        std::cout << "  mov r8, -1" << std::endl;
+        print_asm(arrElem_node->elem_index, mp, arrs);
+        std::cout << "  mov r8, -8" << std::endl;
         std::cout << "  mul r8" << std::endl;
+        std::cout << "  sub rax, " << 2*arrs[arrElem_node->arr_name] << std::endl;
         std::cout << "  mov r9, rax" << std::endl;
-        std::cout << "  dec r9" << std::endl;
-        std::cout << "  mov rax, QWORD PTR [rbp+8*r9]" << std::endl;
+        std::cout << "  mov rax, QWORD PTR [rbp+r9]" << std::endl;
     }
     else if (bin_op_node) {
         switch (bin_op_node->tag) {
             case _ADD_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  add rax, rbx" << std::endl;
                 break;
             }
             case _SUB_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  pop rax" << std::endl;
@@ -405,17 +418,17 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _MUL_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  imul rax, rbx" << std::endl;
                 break;
             }
             case _DIV_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  mov rax, rbx" << std::endl;
@@ -426,9 +439,9 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _MOD_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  mov rax, rbx" << std::endl;
@@ -440,9 +453,9 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _SHL_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  mov rax, rbx" << std::endl;
@@ -453,9 +466,9 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _SHR_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  mov rax, rbx" << std::endl;
@@ -466,30 +479,30 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _AND_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  and rax, rbx" << std::endl;
                 break;
             }
             case _OR_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  or rax, rbx" << std::endl;
                 break;
             }
             case _NOT_ : {
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  not rax" << std::endl;
                 break;
             }
             case _LESS_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  pop rax" << std::endl;
@@ -499,9 +512,9 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _GREAT_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  pop rax" << std::endl;
@@ -511,9 +524,9 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _EQ_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  pop rax" << std::endl;
@@ -523,9 +536,9 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _NEQ_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  pop rax" << std::endl;
@@ -535,9 +548,9 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _LEQ_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  pop rax" << std::endl;
@@ -547,9 +560,9 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _GEQ_ : {
-                print_asm(bin_op_node->left, mp);
+                print_asm(bin_op_node->left, mp, arrs);
                 std::cout << "  push rax" << std::endl;
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  push rax" << std::endl;
                 std::cout << "  pop rbx" << std::endl;
                 std::cout << "  pop rax" << std::endl;
@@ -559,7 +572,7 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 break;
             }
             case _NEG_ : {
-                print_asm(bin_op_node->right, mp);
+                print_asm(bin_op_node->right, mp, arrs);
                 std::cout << "  mov r8, -1" << std::endl;
                 std::cout << "  mul r8" << std::endl;
                 break;
@@ -574,10 +587,20 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
         std::cout << "main:" << std::endl;
         std::cout << "  push rbp" << std::endl;
         std::cout << "  mov rbp, rsp" << std::endl;
-        int space = 0;
-        num_of_scans(main_node, &space);
-        std::cout << "  sub rsp, " << 16 * space << std::endl;
-        print_asm(main_node->next, mp);
+        
+        int scans = 0;
+        num_of_scans(main_node, &scans);
+        scans *= 16;
+        int vars = 8 * (int)mp.size();
+        
+        if (scans >= vars) {
+            std::cout << "  sub rsp, " << scans << std::endl;
+        }
+        else {
+            std::cout << "  sub rsp, " << get_size(vars) << std::endl;
+        }
+        
+        print_asm(main_node->next, mp, arrs);
         std::cout << "  leave" << std::endl;
         std::cout << "  ret\n\n" << std::endl;
         
@@ -586,44 +609,44 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
         std::cout << "  scan_format: .asciz \"\%ld\"" << std::endl;
     }
     else if (assign_node) {
-        print_asm(assign_node->assign_val, mp);
+        print_asm(assign_node->assign_val, mp, arrs);
         std::cout << "  mov QWORD PTR [rbp-" << 2 * mp[assign_node->var_name] << "], rax" << std::endl;
-        print_asm(assign_node->next, mp);
+        print_asm(assign_node->next, mp, arrs);
     }
     else if (arrElemAssign_node) {
-        print_asm(arrElemAssign_node->elem_index, mp);
-        std::cout << "  mov r8, -1" << std::endl;
+        print_asm(arrElemAssign_node->elem_index, mp, arrs);
+        std::cout << "  mov r8, -8" << std::endl;
         std::cout << "  mul r8" << std::endl;
+        std::cout << "  sub rax, " << 2*arrs[arrElemAssign_node->arr_name] << std::endl;
         std::cout << "  mov r9, rax" << std::endl;
-        std::cout << "  dec r9" << std::endl;
-        print_asm(arrElemAssign_node->assign_val, mp);
-        std::cout << "  mov QWORD PTR [rbp+8*r9], rax" << std::endl;
-        print_asm(arrElemAssign_node->next, mp);
+        print_asm(arrElemAssign_node->assign_val, mp, arrs);
+        std::cout << "  mov QWORD PTR [rbp+r9], rax" << std::endl;
+        print_asm(arrElemAssign_node->next, mp, arrs);
     }
     else if (print_node) {
-        print_asm(print_node->print_val, mp);
+        print_asm(print_node->print_val, mp, arrs);
         std::cout << "  lea rdi, print_format" << std::endl;
         std::cout << "  mov rsi, rax" << std::endl;
         std::cout << "  xor rax, rax" << std::endl;
         std::cout << "  call printf" << std::endl;
-        print_asm(print_node->next, mp);
+        print_asm(print_node->next, mp, arrs);
     }
     else if (scan_node) {
         std::cout << "  lea rdi, scan_format" << std::endl;
         std::cout << "  lea rsi, [rbp-" << 2 * mp[scan_node->var_name] << "]" << std::endl;
         std::cout << "  xor rax, rax" << std::endl;
         std::cout << "  call scanf" << std::endl;
-        print_asm(scan_node->next, mp);
+        print_asm(scan_node->next, mp, arrs);
     }
     else if (arrDecl_node) {
         for (int i = 0; i < arrDecl_node->arr_size; ++i) {
-            print_asm(arrDecl_node->arr_vals[i], mp);
+            print_asm(arrDecl_node->arr_vals[i], mp, arrs);
             
             std::string elem_name = arrDecl_node->arr_name + std::to_string(i);
             std::cout << "  mov QWORD PTR [rbp-" << 2 * mp[elem_name] << "], rax" << std::endl;
         }
         
-        print_asm(arrDecl_node->next, mp);
+        print_asm(arrDecl_node->next, mp, arrs);
     }
     else if (if_else_node) {
         auto* next_if_else = dynamic_cast<IfElseNode*>(if_else_node->next);
@@ -632,7 +655,7 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
         
         if (n == 1) {
             std::cout << "if" << if_else_node->if_num << ":" << std::endl;
-            print_asm(if_else_node->conds[0].first, mp);
+            print_asm(if_else_node->conds[0].first, mp, arrs);
             std::cout << "  cmp rax, 1" << std::endl;
             std::cout << "  je cond" << if_else_node->cond_num[0] << std::endl;
             
@@ -647,7 +670,7 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
             }
             
             std::cout << "cond" << if_else_node->cond_num[0] << ":" << std::endl;
-            print_asm(if_else_node->conds[0].second, mp);
+            print_asm(if_else_node->conds[0].second, mp, arrs);
                 
             if (next_if_else) {
                 std::cout << "  jmp if" << next_if_else->if_num << std::endl; 
@@ -663,13 +686,13 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 std::cout << "main" << if_else_node->main_num << ":" << std::endl;
             }
             
-            print_asm(if_else_node->next, mp);
+            print_asm(if_else_node->next, mp, arrs);
         }
         else {
             std::cout << "if" << if_else_node->if_num << ":" << std::endl;
             int i;
             for (i = 1; i < n; ++i) {
-                print_asm(if_else_node->conds[i].first, mp);
+                print_asm(if_else_node->conds[i].first, mp, arrs);
                 std::cout << "  cmp rax, 1" << std::endl;
                 std::cout << "  je cond" << if_else_node->cond_num[i-1] << std::endl;
             }
@@ -677,7 +700,7 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
             
             for (i = 1; i < n; ++i) {
                 std::cout << "cond" << if_else_node->cond_num[i-1] << ":" << std::endl;
-                print_asm(if_else_node->conds[i].second, mp);
+                print_asm(if_else_node->conds[i].second, mp, arrs);
                 
                 if (next_if_else) {
                     std::cout << "  jmp if" << next_if_else->if_num << std::endl; 
@@ -690,7 +713,7 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 }
             }
             std::cout << "cond" << if_else_node->cond_num[i-1] << ":" << std::endl;
-            print_asm(if_else_node->conds[0].second, mp);
+            print_asm(if_else_node->conds[0].second, mp, arrs);
                 
             if (next_if_else) {
                 std::cout << "  jmp if" << next_if_else->if_num << std::endl; 
@@ -702,7 +725,7 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
                 std::cout << "  jmp main" << if_else_node->main_num << std::endl;
                 std::cout << "main" << if_else_node->main_num << ":" << std::endl;
             }
-            print_asm(if_else_node->next, mp);
+            print_asm(if_else_node->next, mp, arrs);
         }
         
     }
@@ -711,7 +734,7 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
         auto* next_if_else = dynamic_cast<IfElseNode*>(while_node->next);
         
         std::cout << "loop" << while_node->while_num << ":" << std::endl;
-        print_asm(while_node->cond, mp);
+        print_asm(while_node->cond, mp, arrs);
         std::cout << "  cmp rax, 0" << std::endl;
         if (next_while) {
             std::cout << "  je loop" << next_while->while_num << std::endl;
@@ -722,12 +745,12 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp) {
         else {
             std::cout << "  je main" << while_node->main_num << std::endl;
         }
-        print_asm(while_node->stmts, mp);
+        print_asm(while_node->stmts, mp, arrs);
         std::cout << "  jmp loop" << while_node->while_num << std::endl;
         
         if (!next_while) {
             std::cout << "main" << while_node->main_num << ":" << std::endl;
         }
-        print_asm(while_node->next, mp);
+        print_asm(while_node->next, mp, arrs);
     }
 };

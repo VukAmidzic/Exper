@@ -39,8 +39,9 @@ public:
 
 class ArrayElemNode : public ASTNode {
 public:
+    std::string arr_name;
     ASTNode* elem_index;
-    ArrayElemNode(int _line_index, ASTNode* _elem_index);
+    ArrayElemNode(int _line_index, std::string _arr_name, ASTNode* _elem_index);
 };
 
 class BinaryNode : public ASTNode {
@@ -96,10 +97,12 @@ public:
 
 class ArrayElemAssignNode : public StatementNode {
 public:
+    std::string arr_name;
     ASTNode* elem_index;
     ASTNode* assign_val;
     ArrayElemAssignNode(
         int _line_index,
+        std::string _arr_name,
         ASTNode* _elem_index,
         ASTNode* _assign_val,
         ASTNode* _next
@@ -160,13 +163,13 @@ public:
 
 int expr_eval(ASTNode* ptr, std::map<std::string, int>& mp);
 
-void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, 
+void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, int>& arrs,
     int* loop_counter, int* if_counter, int* cond_counter, int* main_counter);
 
 std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::string, int>& mp);
 
 void num_of_scans(ASTNode* ptr, int num);
 
-void print_asm(ASTNode* ptr, std::map<std::string, int>& mp);
+void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, int>& arrs);
 
 #endif
