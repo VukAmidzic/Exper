@@ -32,7 +32,7 @@
     
     ASTNode* prog = nullptr;
     static std::map<std::string, int> mp;
-    static std::map<std::string, int> arrs;
+    static std::map<std::string, std::pair<int, ArrayType>> arrs;
     extern int var_counter;
     int main_counter = 0;
     int loop_counter = 0;
@@ -148,9 +148,15 @@ assign  : ID ASSIGN expr {
             
             int arr_size = arr_vals.size();
             
-            $$ = new ArrayDeclNode(line_index, arr_name, arr_size, arr_vals, nullptr);
+            $$ = new StatArrayDeclNode(line_index, arr_name, arr_size, arr_vals, nullptr);
             
             delete $1;
+        }
+        | ID LQP RQP ASSIGN LQP expr SEMIC expr RQP {
+            std::string arr_name = "@";
+            arr_name = arr_name.append(*$1) + "_";
+        
+            $$ = new DynArrayDeclNode(line_index, arr_name, $6, $8, nullptr);
         };
 
 elems   : expr COMMA elems {
@@ -227,10 +233,6 @@ int main(int argc, char** argv) {
     yyparse();
     
     traverse_tree(prog, mp, arrs, &loop_counter, &if_counter, &cond_counter, &main_counter);
-    
-    for (auto it : arrs) {
-        std::cout << "#" << it.first << " " << 2*it.second << std::endl;
-    }
     
     int varcheck_enabled = VARCHECK_ENABLE;
     if (varcheck_enabled) {

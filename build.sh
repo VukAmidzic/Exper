@@ -14,7 +14,7 @@ fi
 
 lex frontend/lexer.l
 echo "[INFO] Lexer successfully built"
-bison -d frontend/parser.ypp
+bison -d frontend/parser.ypp 2>/dev/null
 g++ -Wall -Wextra ast/ast.cpp lex.yy.c parser.tab.cpp -g -o exp
 echo "[INFO] Parser successfully built"
 
@@ -24,7 +24,7 @@ enable () {
         sed -i "s/#define VARCHECK_ENABLE 0/#define VARCHECK_ENABLE 1/" frontend/parser.ypp
         lex frontend/lexer.l
         echo "[INFO] Lexer successfully built"
-        bison -d frontend/parser.ypp
+        bison -d frontend/parser.ypp 2>/dev/null
         g++ -Wall -Wextra ast/ast.cpp lex.yy.c parser.tab.cpp -g -o exp
         echo "[INFO] Parser successfully built"
     fi
@@ -36,7 +36,7 @@ disable () {
         sed -i "s/#define VARCHECK_ENABLE 1/#define VARCHECK_ENABLE 0/" frontend/parser.ypp
         lex frontend/lexer.l
         echo "[INFO] Lexer successfully built"
-        bison -d frontend/parser.ypp
+        bison -d frontend/parser.ypp 2>/dev/null
         g++ -Wall -Wextra ast/ast.cpp lex.yy.c parser.tab.cpp -g -o exp
         echo "[INFO] Parser successfully built"
     fi

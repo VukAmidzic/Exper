@@ -11,6 +11,8 @@
 
 const int VAR_STEP = 4;
 
+enum ArrayType { _STAT_, _DYN_ };
+
 enum Tag {
     _ADD_, _SUB_, _MUL_, _DIV_,
     _MOD_, _SHL_, _SHR_, _LESS_,
@@ -80,17 +82,32 @@ public:
     );
 };
 
-class ArrayDeclNode : public StatementNode {
+class StatArrayDeclNode : public StatementNode {
 public:
     std::string arr_name;
     int arr_size;
     std::vector<ASTNode*> arr_vals;
     
-    ArrayDeclNode(
+    StatArrayDeclNode(
         int _line_index,
         std::string _arr_name,
         int _arr_size,
         std::vector<ASTNode*> _arr_vals,
+        ASTNode* _next
+    );
+};
+
+class DynArrayDeclNode : public StatementNode {
+public:
+    std::string arr_name;
+    ASTNode* arr_size;
+    ASTNode* arr_val;
+    
+    DynArrayDeclNode(
+        int _line_index,
+        std::string _arr_name,
+        ASTNode* _arr_size,
+        ASTNode* _arr_val,
         ASTNode* _next
     );
 };
@@ -163,13 +180,13 @@ public:
 
 int expr_eval(ASTNode* ptr, std::map<std::string, int>& mp);
 
-void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, int>& arrs,
+void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs,
     int* loop_counter, int* if_counter, int* cond_counter, int* main_counter);
 
 std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::string, int>& mp);
 
 void num_of_scans(ASTNode* ptr, int num);
 
-void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, int>& arrs);
+void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs);
 
 #endif

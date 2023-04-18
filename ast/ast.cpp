@@ -40,12 +40,21 @@ AssignNode::AssignNode(int _line_index, std::string _var_name, ASTNode* _assign_
     next = _next;
 };
 
-ArrayDeclNode::ArrayDeclNode(int _line_index, std::string _arr_name, int _arr_size, 
+StatArrayDeclNode::StatArrayDeclNode(int _line_index, std::string _arr_name, int _arr_size, 
     std::vector<ASTNode*> _arr_vals, ASTNode* _next) {
     line_index = _line_index;
     arr_name = _arr_name;
     arr_size = _arr_size;
     arr_vals = _arr_vals;
+    next = _next;
+};
+
+DynArrayDeclNode::DynArrayDeclNode(int _line_index, std::string _arr_name, ASTNode* _arr_size, 
+    ASTNode* _arr_val, ASTNode* _next) {
+    line_index = _line_index;
+    arr_name = _arr_name;
+    arr_size = _arr_size;
+    arr_val = _arr_val;
     next = _next;
 }
 
@@ -88,7 +97,7 @@ WhileNode::WhileNode(int _line_index, int _while_num, int _main_num, ASTNode* _c
     next = _next;
 };
 
-void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, int>& arrs, 
+void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs, 
     int* loop_counter, int* if_counter, int* cond_counter, int* main_counter) {
     auto* num_node = dynamic_cast<NumNode*>(ptr);
     auto* var_node = dynamic_cast<VarNode*>(ptr);
@@ -98,7 +107,8 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
     auto* assign_node = dynamic_cast<AssignNode*>(ptr);
     auto* print_node = dynamic_cast<PrintNode*>(ptr);
     auto* scan_node = dynamic_cast<ScanNode*>(ptr);
-    auto* arrDecl_node = dynamic_cast<ArrayDeclNode*>(ptr);
+    auto* statArrDecl_node = dynamic_cast<StatArrayDeclNode*>(ptr);
+    auto* dynArrDecl_node = dynamic_cast<DynArrayDeclNode*>(ptr);
     auto* arrElemAssign_node = dynamic_cast<ArrayElemAssignNode*>(ptr);
     auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
     auto* while_node = dynamic_cast<WhileNode*>(ptr);
@@ -133,21 +143,30 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
     else if (scan_node) {
         traverse_tree(scan_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
     }
-    else if (arrDecl_node) {
-        auto it = arrs.find(arrDecl_node->arr_name);
-        if (it == arrs.end()) { arrs[arrDecl_node->arr_name] = var_counter; }
+    else if (statArrDecl_node) {
+        auto it = arrs.find(statArrDecl_node->arr_name);
+        if (it == arrs.end()) { arrs[statArrDecl_node->arr_name] = {var_counter, _STAT_}; }
         
-        for (int i = 0; i < arrDecl_node->arr_size; ++i) {
-            traverse_tree(arrDecl_node->arr_vals[i], mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
+            traverse_tree(statArrDecl_node->arr_vals[i], mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
             
-            std::string elem_name = arrDecl_node->arr_name + std::to_string(i);
+            std::string elem_name = statArrDecl_node->arr_name + std::to_string(i);
             
             mp[elem_name] = var_counter;
             var_counter += VAR_STEP;
         }
         
-        traverse_tree(arrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter,
+        traverse_tree(statArrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter,
         main_counter);
+    }
+    else if (dynArrDecl_node) {
+        auto it = arrs.find(dynArrDecl_node->arr_name);
+        if (it == arrs.end()) { arrs[dynArrDecl_node->arr_name] = {var_counter, _DYN_};}
+        var_counter += VAR_STEP;
+        
+        traverse_tree(dynArrDecl_node->arr_size, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(dynArrDecl_node->arr_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(dynArrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
     }
     else if (if_else_node) {
         int n = if_else_node->conds.size();
@@ -207,7 +226,8 @@ std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::strin
     auto* assign_node = dynamic_cast<AssignNode*>(ptr);
     auto* print_node = dynamic_cast<PrintNode*>(ptr);
     auto* scan_node = dynamic_cast<ScanNode*>(ptr);
-    auto* arrDecl_node = dynamic_cast<ArrayDeclNode*>(ptr);
+    auto* statArrDecl_node = dynamic_cast<StatArrayDeclNode*>(ptr);
+    auto* dynArrDecl_node = dynamic_cast<DynArrayDeclNode*>(ptr);
     auto* arrElemAssign_node = dynamic_cast<ArrayElemAssignNode*>(ptr);
     auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
     auto* while_node = dynamic_cast<WhileNode*>(ptr);
@@ -264,8 +284,23 @@ std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::strin
         else if (mp.find(scan_node->var_name) == mp.end()) return {scan_node->var_name, false, scan_node->line_index};
         else return {"", true, -1};
     }
-    else if (arrDecl_node) {
-        return var_checker(arrDecl_node->next, mp);
+    else if (statArrDecl_node) {
+        for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
+            std::tuple<std::string, bool, int> tmp = var_checker(statArrDecl_node->arr_vals[i], mp);
+            
+            if (!std::get<1>(tmp)) {return {std::get<0>(tmp), false, std::get<2>(tmp)}; }
+        }
+        
+        return var_checker(statArrDecl_node->next, mp);
+    }
+    else if (dynArrDecl_node) {
+        std::tuple<std::string, bool, int> size = var_checker(dynArrDecl_node->arr_size, mp);
+        if (!std::get<1>(size)) return {std::get<0>(size), false, std::get<2>(size)};
+        
+        std::tuple<std::string, bool, int> val = var_checker(dynArrDecl_node->arr_size, mp);
+        if (!std::get<1>(val)) return {std::get<0>(val), false, std::get<2>(val)};
+        
+        return var_checker(dynArrDecl_node->next, mp);
     }
     else if (if_else_node) {
         std::tuple<std::string, bool, int> next = var_checker(if_else_node->next, mp);
@@ -308,7 +343,8 @@ void num_of_scans(ASTNode* ptr, int* num) {
     auto* assign_node = dynamic_cast<AssignNode*>(ptr);
     auto* print_node = dynamic_cast<PrintNode*>(ptr);
     auto* scan_node = dynamic_cast<ScanNode*>(ptr);
-    auto* arrDecl_node = dynamic_cast<ArrayDeclNode*>(ptr);
+    auto* statArrDecl_node = dynamic_cast<StatArrayDeclNode*>(ptr);
+    auto* dynArrDecl_node = dynamic_cast<DynArrayDeclNode*>(ptr);
     auto* arrElemAssign_node = dynamic_cast<ArrayElemAssignNode*>(ptr);
     auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
     auto* while_node = dynamic_cast<WhileNode*>(ptr);
@@ -336,8 +372,11 @@ void num_of_scans(ASTNode* ptr, int* num) {
         *num += 1;
         num_of_scans(scan_node->next, num);
     }
-    else if (arrDecl_node) {
-        num_of_scans(arrDecl_node->next, num);
+    else if (statArrDecl_node) {
+        num_of_scans(statArrDecl_node->next, num);
+    }
+    else if (dynArrDecl_node) {
+        num_of_scans(dynArrDecl_node->next, num);
     }
     else if (if_else_node) {
         int n = if_else_node->conds.size();
@@ -362,14 +401,12 @@ void num_of_scans(ASTNode* ptr, int* num) {
 };
 
 int get_size(int n) {
-    int i = 16;
-    
+    int i = 16;    
     while (i <= n) i += 16;
-    
     return i;
 }
 
-void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, int>& arrs) {
+void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs) {
     auto* num_node = dynamic_cast<NumNode*>(ptr);
     auto* var_node = dynamic_cast<VarNode*>(ptr);
     auto* arrElem_node = dynamic_cast<ArrayElemNode*>(ptr);
@@ -378,7 +415,8 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
     auto* assign_node = dynamic_cast<AssignNode*>(ptr);
     auto* print_node = dynamic_cast<PrintNode*>(ptr);
     auto* scan_node = dynamic_cast<ScanNode*>(ptr);
-    auto* arrDecl_node = dynamic_cast<ArrayDeclNode*>(ptr);
+    auto* statArrDecl_node = dynamic_cast<StatArrayDeclNode*>(ptr);
+    auto* dynArrDecl_node = dynamic_cast<DynArrayDeclNode*>(ptr);
     auto* arrElemAssign_node = dynamic_cast<ArrayElemAssignNode*>(ptr);
     auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
     auto* while_node = dynamic_cast<WhileNode*>(ptr);
@@ -390,12 +428,28 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
         std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * mp[var_node->var_name] << "]" << std::endl;
     }
     else if (arrElem_node) {
-        print_asm(arrElem_node->elem_index, mp, arrs);
-        std::cout << "  mov r8, -8" << std::endl;
-        std::cout << "  mul r8" << std::endl;
-        std::cout << "  sub rax, " << 2*arrs[arrElem_node->arr_name] << std::endl;
-        std::cout << "  mov r9, rax" << std::endl;
-        std::cout << "  mov rax, QWORD PTR [rbp+r9]" << std::endl;
+        auto it = arrs.find(arrElem_node->arr_name);
+        if (it != arrs.end()) {
+            ArrayType ty = it->second.second;
+            if (ty == ArrayType::_STAT_) {
+                print_asm(arrElem_node->elem_index, mp, arrs);
+                std::cout << "  mov r8, -8" << std::endl;
+                std::cout << "  mul r8" << std::endl;
+                std::cout << "  sub rax, " << 2*arrs[arrElem_node->arr_name].first << std::endl;
+                std::cout << "  mov r9, rax" << std::endl;
+                std::cout << "  mov rax, QWORD PTR [rbp+r9]" << std::endl;
+            }
+            else {
+                print_asm(arrElemAssign_node->elem_index, mp, arrs);
+                std::cout << "  mov r8, 8" << std::endl;
+                std::cout << "  mul r8" << std::endl;
+                std::cout << "  mov rdx, rax" << std::endl;
+                std::cout << "  mov rax, QWORD PTR [rbp-" << 2*arrs[arrElemAssign_node->arr_name].first << "]" << std::endl;
+                std::cout << "  add rax, rdx" << std::endl;
+                std::cout << "  mov rdi, rax" << std::endl;
+                std::cout << "  mov rax, QWORD PTR [rdi]" << std::endl;
+            }
+        }
     }
     else if (bin_op_node) {
         switch (bin_op_node->tag) {
@@ -591,7 +645,7 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
         int scans = 0;
         num_of_scans(main_node, &scans);
         scans *= 16;
-        int vars = 8 * (int)mp.size();
+        int vars = 2 * std::max((int)(--mp.end())->second, (int)(--arrs.end())->second.second);
         
         if (scans >= vars) {
             std::cout << "  sub rsp, " << scans << std::endl;
@@ -614,14 +668,32 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
         print_asm(assign_node->next, mp, arrs);
     }
     else if (arrElemAssign_node) {
-        print_asm(arrElemAssign_node->elem_index, mp, arrs);
-        std::cout << "  mov r8, -8" << std::endl;
-        std::cout << "  mul r8" << std::endl;
-        std::cout << "  sub rax, " << 2*arrs[arrElemAssign_node->arr_name] << std::endl;
-        std::cout << "  mov r9, rax" << std::endl;
-        print_asm(arrElemAssign_node->assign_val, mp, arrs);
-        std::cout << "  mov QWORD PTR [rbp+r9], rax" << std::endl;
-        print_asm(arrElemAssign_node->next, mp, arrs);
+        auto it = arrs.find(arrElemAssign_node->arr_name);
+        if (it != arrs.end()) { 
+            ArrayType ty = it->second.second;
+            if (ty == ArrayType::_STAT_) {
+                print_asm(arrElemAssign_node->elem_index, mp, arrs);
+                std::cout << "  mov r8, -8" << std::endl;
+                std::cout << "  mul r8" << std::endl;
+                std::cout << "  sub rax, " << 2*arrs[arrElemAssign_node->arr_name].first << std::endl;
+                std::cout << "  mov r9, rax" << std::endl;
+                print_asm(arrElemAssign_node->assign_val, mp, arrs);
+                std::cout << "  mov QWORD PTR [rbp+r9], rax" << std::endl;
+                print_asm(arrElemAssign_node->next, mp, arrs);
+            }
+            else {
+                print_asm(arrElemAssign_node->elem_index, mp, arrs);
+                std::cout << "  mov r8, 8" << std::endl;
+                std::cout << "  mul r8" << std::endl;
+                std::cout << "  mov rdx, rax" << std::endl;
+                std::cout << "  mov rax, QWORD PTR [rbp-" << 2*arrs[arrElemAssign_node->arr_name].first << "]" << std::endl;
+                std::cout << "  add rax, rdx" << std::endl;
+                std::cout << "  mov rdi, rax" << std::endl;
+                print_asm(arrElemAssign_node->assign_val, mp, arrs);
+                std::cout << "  mov QWORD PTR [rdi], rax" << std::endl;
+                print_asm(arrElemAssign_node->next, mp, arrs);
+            }
+        }
     }
     else if (print_node) {
         print_asm(print_node->print_val, mp, arrs);
@@ -638,15 +710,23 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
         std::cout << "  call scanf" << std::endl;
         print_asm(scan_node->next, mp, arrs);
     }
-    else if (arrDecl_node) {
-        for (int i = 0; i < arrDecl_node->arr_size; ++i) {
-            print_asm(arrDecl_node->arr_vals[i], mp, arrs);
+    else if (statArrDecl_node) {
+        for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
+            print_asm(statArrDecl_node->arr_vals[i], mp, arrs);
             
-            std::string elem_name = arrDecl_node->arr_name + std::to_string(i);
+            std::string elem_name = statArrDecl_node->arr_name + std::to_string(i);
             std::cout << "  mov QWORD PTR [rbp-" << 2 * mp[elem_name] << "], rax" << std::endl;
         }
         
-        print_asm(arrDecl_node->next, mp, arrs);
+        print_asm(statArrDecl_node->next, mp, arrs);
+    }
+    else if (dynArrDecl_node) {
+        print_asm(dynArrDecl_node->arr_size, mp, arrs);
+        std::cout << "  sal rax, 3" << std::endl;
+        std::cout << "  mov rdi, rax" << std::endl;
+        std::cout << "  call malloc" << std::endl;
+        std::cout << "  mov QWORD PTR [rbp-" << 2*arrs[dynArrDecl_node->arr_name].first << "], rax" << std::endl; 
+        print_asm(dynArrDecl_node->next, mp, arrs);
     }
     else if (if_else_node) {
         auto* next_if_else = dynamic_cast<IfElseNode*>(if_else_node->next);
@@ -740,7 +820,7 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
             std::cout << "  je loop" << next_while->while_num << std::endl;
         }
         else if (next_if_else) {
-            std::cout << "  je loop" << next_if_else->if_num << std::endl;
+            std::cout << "  je if" << next_if_else->if_num << std::endl;
         }
         else {
             std::cout << "  je main" << while_node->main_num << std::endl;
