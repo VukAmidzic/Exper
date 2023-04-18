@@ -21,22 +21,12 @@ This is a personal hobby-made language written in C++ together with Flex/Bison t
 
 ## Some info
 
-### Project goals
- - [X] Fix some minor bugs regarding the assembly code
- - [X] Fix subtraction and shifting
- - [X] Make comments
- - [X] Make error messages verbose
- - [x] Implement if-else statement
- - [X] Implement loop statement
- - [x] Make static arrays
- - [X] Make scan function
- 
 ### Supported structures, operations and statements
 - assignment of values to the variables
 - printing and scaning input
 - arithmetic, logical and bitwise operations
-- loop and if-else statements (individually or nested)
-- static arrays (out-of-bounds checking yet to be added)
+- loop and if-else statements (individual or nested)
+- fixed-size arrays
 
 ## Running the compiler
 
