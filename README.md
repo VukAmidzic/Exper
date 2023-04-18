@@ -36,39 +36,7 @@ source build.sh
 ```
 This will create the parser. In order to run your code, you need to type a command that looks like 
 ```
-exp file_name.fkc executable_name
+exp file_name.exp executable_name
 ```
 This will run the parser and compiler and translate your program to assembly file, which will later on be translated to an executable file. At the end, you can run your program by typing ```./executable_name``` .
 If you want to enable/disable variable-checking function, you can type ```enable``` or ```disable``` with the ```--var-check``` option.
-
-### Example 
-
-```
-a := 1;
-b := a << 5;
-print(b);
-
-ab[] := [5;5]; 
-cd[] := {1,2,3};
-
-ab[0] := 1;
-ab[1] := 2;
-print(ab[0]);
-
-if (b < 10) {
-    c := b;
-}
-else {
-    c := 10;
-};
-
-d := c;
-
-while (d > 0) {
-    print(d);
-    d := d - 1;
-};
-```
-
-
-
