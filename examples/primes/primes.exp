@@ -1,0 +1,25 @@
+/* This script generates n prime numbers, starting from 2 */
+
+n := 0;
+scan(n);
+
+i := 0;
+curr := 2;
+
+while (i < n) {
+    tmp := 2;
+    divs := 0;
+    
+    while (tmp < curr) {
+        if (curr % tmp = 0) {divs := divs + 1;};
+        
+        tmp := tmp + 1;
+    };
+
+    if (divs = 0) {
+        print(curr);
+        i := i + 1;
+    };
+
+    curr := curr + 1;
+};

@@ -505,11 +505,12 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
         std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * mp[var_node->var_name] << "]" << std::endl;
     }
     else if (arrElem_node) {
+        print_asm(arrElem_node->elem_index, mp, arrs);
+        
         auto it = arrs.find(arrElem_node->arr_name);
         if (it != arrs.end()) {
             ArrayType ty = it->second.second;
             if (ty == ArrayType::_STAT_) {
-                print_asm(arrElem_node->elem_index, mp, arrs);
                 std::cout << "  mov r8, -8" << std::endl;
                 std::cout << "  mul r8" << std::endl;
                 std::cout << "  sub rax, " << 2*arrs[arrElem_node->arr_name].first << std::endl;
@@ -517,11 +518,10 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
                 std::cout << "  mov rax, QWORD PTR [rbp+r9]" << std::endl;
             }
             else if (ty == ArrayType::_DYN_) {
-                print_asm(arrElem_node->elem_index, mp, arrs);
                 std::cout << "  mov r8, 8" << std::endl;
                 std::cout << "  mul r8" << std::endl;
                 std::cout << "  mov rdx, rax" << std::endl;
-                std::cout << "  mov rax, QWORD PTR [rbp-" << 2*arrs[arrElemAssign_node->arr_name].first << "]" << std::endl;
+                std::cout << "  mov rax, QWORD PTR [rbp-" << 2*arrs[arrElem_node->arr_name].first << "]" << std::endl;
                 std::cout << "  add rax, rdx" << std::endl;
                 std::cout << "  mov rdi, rax" << std::endl;
                 std::cout << "  mov rax, QWORD PTR [rdi]" << std::endl;
@@ -756,11 +756,12 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
         print_asm(assign_node->next, mp, arrs);
     }
     else if (arrElemAssign_node) {
+        print_asm(arrElemAssign_node->elem_index, mp, arrs);
+        
         auto it = arrs.find(arrElemAssign_node->arr_name);
         if (it != arrs.end()) { 
             ArrayType ty = it->second.second;
             if (ty == ArrayType::_STAT_) {
-                print_asm(arrElemAssign_node->elem_index, mp, arrs);
                 std::cout << "  mov r8, -8" << std::endl;
                 std::cout << "  mul r8" << std::endl;
                 std::cout << "  sub rax, " << 2*arrs[arrElemAssign_node->arr_name].first << std::endl;
@@ -769,7 +770,6 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
                 std::cout << "  mov QWORD PTR [rbp+r9], rax" << std::endl;
             }
             else if (ty == ArrayType::_DYN_) {
-                print_asm(arrElemAssign_node->elem_index, mp, arrs);
                 std::cout << "  mov r8, 8" << std::endl;
                 std::cout << "  mul r8" << std::endl;
                 std::cout << "  mov rdx, rax" << std::endl;
