@@ -152,11 +152,11 @@ assign  : ID ASSIGN expr {
             
             delete $1;
         }
-        | ID LQP RQP ASSIGN LQP expr SEMIC expr RQP {
+        | ID LQP RQP ASSIGN LQP expr RQP {
             std::string arr_name = "@";
             arr_name = arr_name.append(*$1) + "_";
         
-            $$ = new DynArrayDeclNode(line_index, arr_name, $6, $8, nullptr);
+            $$ = new DynArrayDeclNode(line_index, arr_name, $6, nullptr);
         };
 
 elems   : expr COMMA elems {
@@ -243,6 +243,7 @@ int main(int argc, char** argv) {
             exit(EXIT_FAILURE);
         }
     }
+    
     print_asm(prog, mp, arrs);
     
     exit(EXIT_SUCCESS);

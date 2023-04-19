@@ -101,13 +101,11 @@ class DynArrayDeclNode : public StatementNode {
 public:
     std::string arr_name;
     ASTNode* arr_size;
-    ASTNode* arr_val;
     
     DynArrayDeclNode(
         int _line_index,
         std::string _arr_name,
         ASTNode* _arr_size,
-        ASTNode* _arr_val,
         ASTNode* _next
     );
 };

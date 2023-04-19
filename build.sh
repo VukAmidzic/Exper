@@ -51,7 +51,10 @@ exp () {
     
     if [ -s "${2}.s" ];
     then 
-        gcc asm/asm_ops.c -m64 -fno-pie -no-pie "${2}.s" -g -o $2
+        comp_res= gcc asm/asm_ops.c -m64 -fno-pie -no-pie "${2}.s" -g -o $2 2>/dev/null
+        if [[ $comp_res -ne 0 ]]; then
+            echo "Compilation error"
+        fi
     fi
     
 }
