@@ -99,13 +99,17 @@ public:
 
 class DynArrayDeclNode : public StatementNode {
 public:
+    int arrayDecl_loop;
     std::string arr_name;
     ASTNode* arr_size;
+    ASTNode* arr_val;
     
     DynArrayDeclNode(
         int _line_index,
+        int _arrayDecl_loop,
         std::string _arr_name,
         ASTNode* _arr_size,
+        ASTNode* _arr_val,
         ASTNode* _next
     );
 };
@@ -179,7 +183,7 @@ public:
 int expr_eval(ASTNode* ptr, std::map<std::string, int>& mp);
 
 void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs,
-    int* loop_counter, int* if_counter, int* cond_counter, int* main_counter);
+    int* loop_counter, int* if_counter, int* cond_counter, int* main_counter, int* arrayDecl_loop);
 
 std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::string, int>& mp);
 

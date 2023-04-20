@@ -20,7 +20,8 @@ echo "[INFO] Parser successfully built"
 
 enable () {
     if [ $1 = "--var-check" ];
-    then 
+    then
+        echo "[INFO] Variable checking enabled"
         sed -i "s/#define VARCHECK_ENABLE 0/#define VARCHECK_ENABLE 1/" frontend/parser.ypp
         lex frontend/lexer.l
         echo "[INFO] Lexer successfully built"
@@ -33,6 +34,7 @@ enable () {
 disable () {
     if [ $1 = "--var-check" ];
     then 
+        echo "[INFO] Variable checking disabled"
         sed -i "s/#define VARCHECK_ENABLE 1/#define VARCHECK_ENABLE 0/" frontend/parser.ypp
         lex frontend/lexer.l
         echo "[INFO] Lexer successfully built"
@@ -46,14 +48,16 @@ exp () {
     if [[ "$1" == *.exp ]]; then
         ./exp $1 > "${2}.s"
     else 
-        echo "Wrong file extension; expected .exp at the end..."
+        echo "[ERROR] Wrong file extension; expected .exp at the end..."
     fi 
     
     if [ -s "${2}.s" ];
     then 
         comp_res= gcc asm/asm_ops.c -m64 -fno-pie -no-pie "${2}.s" -g -o $2 2>/dev/null
         if [[ $comp_res -ne 0 ]]; then
-            echo "Compilation error"
+            echo "[INFO] Compilation error"
+        else 
+            echo "[INFO] Successfull compilation"
         fi
     fi
     

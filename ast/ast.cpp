@@ -49,11 +49,13 @@ StatArrayDeclNode::StatArrayDeclNode(int _line_index, std::string _arr_name, int
     next = _next;
 };
 
-DynArrayDeclNode::DynArrayDeclNode(int _line_index, std::string _arr_name, ASTNode* _arr_size, 
-    ASTNode* _next) {
+DynArrayDeclNode::DynArrayDeclNode(int _line_index, int _arrayDecl_loop, std::string _arr_name, ASTNode* _arr_size, 
+    ASTNode* _arr_val, ASTNode* _next) {
     line_index = _line_index;
+    arrayDecl_loop = _arrayDecl_loop;
     arr_name = _arr_name;
     arr_size = _arr_size;
+    arr_val = _arr_val;
     next = _next;
 }
 
@@ -97,7 +99,7 @@ WhileNode::WhileNode(int _line_index, int _while_num, int _main_num, ASTNode* _c
 };
 
 void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs, 
-    int* loop_counter, int* if_counter, int* cond_counter, int* main_counter) {
+    int* loop_counter, int* if_counter, int* cond_counter, int* main_counter, int* arrayDecl_loop) {
     auto* num_node = dynamic_cast<NumNode*>(ptr);
     auto* var_node = dynamic_cast<VarNode*>(ptr);
     auto* arrElem_node = dynamic_cast<ArrayElemNode*>(ptr);
@@ -115,14 +117,14 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
     if (num_node) { return; }
     else if (var_node) { return; }
     else if (arrElem_node) {
-        traverse_tree(arrElem_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(arrElem_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
     }
     else if (bin_op_node) {
-        traverse_tree(bin_op_node->left, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(bin_op_node->right, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(bin_op_node->left, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        traverse_tree(bin_op_node->right, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
     }
     else if (main_node) {
-        traverse_tree(main_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(main_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
     }
     else if (assign_node) {
         auto it = mp.find(assign_node->var_name);
@@ -131,26 +133,26 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
             var_counter += VAR_STEP;
         }
         
-        traverse_tree(assign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(assign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
     }
     else if (arrElemAssign_node) {
-        traverse_tree(arrElemAssign_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(arrElemAssign_node->assign_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(arrElemAssign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(arrElemAssign_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        traverse_tree(arrElemAssign_node->assign_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        traverse_tree(arrElemAssign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
     }
     else if (print_node) {
-        traverse_tree(print_node->print_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(print_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(print_node->print_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        traverse_tree(print_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
     }
     else if (scan_node) {
-        traverse_tree(scan_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(scan_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
     }
     else if (statArrDecl_node) {
         auto it = arrs.find(statArrDecl_node->arr_name);
         if (it == arrs.end()) { arrs[statArrDecl_node->arr_name] = {var_counter, _STAT_}; }
         
         for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
-            traverse_tree(statArrDecl_node->arr_vals[i], mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(statArrDecl_node->arr_vals[i], mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
             
             std::string elem_name = statArrDecl_node->arr_name + std::to_string(i);
             
@@ -159,15 +161,19 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
         }
         
         traverse_tree(statArrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter,
-        main_counter);
+        main_counter, arrayDecl_loop);
     }
     else if (dynArrDecl_node) {
+        dynArrDecl_node->arrayDecl_loop = *arrayDecl_loop;
+        *arrayDecl_loop += 1;
+        
         auto it = arrs.find(dynArrDecl_node->arr_name);
         if (it == arrs.end()) { arrs[dynArrDecl_node->arr_name] = {var_counter, _DYN_};}
         var_counter += VAR_STEP;
         
-        traverse_tree(dynArrDecl_node->arr_size, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(dynArrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(dynArrDecl_node->arr_size, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        traverse_tree(dynArrDecl_node->arr_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        traverse_tree(dynArrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
     }
     else if (if_else_node) {
         int n = if_else_node->conds.size();
@@ -181,16 +187,16 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
             *main_counter += 1;
             *cond_counter += 1;
             
-            traverse_tree(if_else_node->conds[0].first, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
-            traverse_tree(if_else_node->conds[0].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
-            traverse_tree(if_else_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->conds[0].first, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            traverse_tree(if_else_node->conds[0].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            traverse_tree(if_else_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
         }
         else {
             if_else_node->if_num = *if_counter;
             if_else_node->main_num = *main_counter;
             for (int i = 1; i < n; ++i) {
                 if_else_node->cond_num.push_back(*cond_counter + i - 1);
-                traverse_tree(if_else_node->conds[i].first, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+                traverse_tree(if_else_node->conds[i].first, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
             }
             if_else_node->cond_num.push_back(*cond_counter + n - 1);
             *cond_counter += n;
@@ -198,11 +204,11 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
             
             for (int i = 1; i < n; ++i) {
                 *if_counter += 1;
-                traverse_tree(if_else_node->conds[i].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+                traverse_tree(if_else_node->conds[i].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
             }
-            traverse_tree(if_else_node->conds[0].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->conds[0].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
             
-            traverse_tree(if_else_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+            traverse_tree(if_else_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
         }
     }
     else if (while_node) {
@@ -211,9 +217,9 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
         *loop_counter += 1;    
         *main_counter += 1;
         
-        traverse_tree(while_node->cond, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(while_node->stmts, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
-        traverse_tree(while_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter);
+        traverse_tree(while_node->cond, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        traverse_tree(while_node->stmts, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        traverse_tree(while_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
     }
     else { return; }
 };
@@ -297,6 +303,9 @@ std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::strin
     else if (dynArrDecl_node) {
         std::tuple<std::string, bool, int> size = var_checker(dynArrDecl_node->arr_size, mp);
         if (!std::get<1>(size)) return {std::get<0>(size), false, std::get<2>(size)};
+        
+        std::tuple<std::string, bool, int> val = var_checker(dynArrDecl_node->arr_val, mp);
+        if (!std::get<1>(val)) return {std::get<0>(val), false, std::get<2>(val)};
         
         return var_checker(dynArrDecl_node->next, mp);
     }
@@ -820,10 +829,28 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
             print_asm(dynArrDecl_node->arr_size, mp, arrs);
         }
         
+        std::cout << "  mov rbx, rax" << std::endl;
         std::cout << "  sal rax, 3" << std::endl;
+        std::cout << "  mov r12, 0" << std::endl;
         std::cout << "  mov rdi, rax" << std::endl;
         std::cout << "  call malloc" << std::endl;
         std::cout << "  mov QWORD PTR [rbp-" << 2*arrs[dynArrDecl_node->arr_name].first << "], rax" << std::endl; 
+        std::cout << "arr_loop" << dynArrDecl_node->arrayDecl_loop << ":" << std::endl;
+        std::cout << "  cmp r12, rbx" << std::endl;
+        std::cout << "  je arr_next" << dynArrDecl_node->arrayDecl_loop << std::endl;
+        std::cout << "  mov rax, r12" << std::endl;
+        std::cout << "  mov r8, 8" << std::endl;
+        std::cout << "  mul r8" << std::endl;
+        std::cout << "  mov rdx, rax" << std::endl;
+        std::cout << "  mov rax, QWORD PTR [rbp-" << 2*arrs[dynArrDecl_node->arr_name].first << "]" << std::endl;
+        std::cout << "  add rax, rdx" << std::endl;
+        std::cout << "  mov rdi, rax" << std::endl;
+        print_asm(dynArrDecl_node->arr_val, mp, arrs);
+        std::cout << "  mov QWORD PTR [rdi], rax" << std::endl;
+        std::cout << "  inc r12" << std::endl;
+        std::cout << "  jmp arr_loop" << dynArrDecl_node->arrayDecl_loop << std::endl;
+        std::cout << "arr_next" << dynArrDecl_node->arrayDecl_loop << ":" << std::endl;
+            
         print_asm(dynArrDecl_node->next, mp, arrs);
     }
     else if (if_else_node) {
