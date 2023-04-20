@@ -6,7 +6,7 @@
 n := 0;
 scan(n);
 
-arr[] := [n];
+arr[] := [n; 0];
 
 i := 0;
 while (i < n) {
