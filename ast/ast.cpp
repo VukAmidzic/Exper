@@ -733,9 +733,9 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
                 std::cout << "  mov rdx, rax" << std::endl;
                 std::cout << "  mov rax, QWORD PTR [rbp-" << 2*arrs[arrElemAssign_node->arr_name].first << "]" << std::endl;
                 std::cout << "  add rax, rdx" << std::endl;
-                std::cout << "  mov rdi, rax" << std::endl;
+                std::cout << "  mov r9, rax" << std::endl;
                 print_asm(arrElemAssign_node->assign_val, mp, arrs);
-                std::cout << "  mov QWORD PTR [rdi], rax" << std::endl;
+                std::cout << "  mov QWORD PTR [r9], rax" << std::endl;
                 
             }
             else { return; }
