@@ -9,6 +9,7 @@
 #include <tuple>
 #include <vector>
 #include <utility>
+#include <fstream>
 
 const int VAR_STEP = 4;
 int var_counter = 4;
@@ -125,7 +126,7 @@ Result* traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std
     else if (arrElem_node) {
         if (arrs.find(arrElem_node->arr_name) == arrs.end()) {
             std::string arr = arrElem_node->arr_name.substr(1, arrElem_node->arr_name.length()-2);
-            return new Result(ErrType::_ERR_ARR_, arrElem_node->line_index, "Unknown array '" + arr + "'");
+            return new Result(ErrType::_ERR_ARR_, arrElem_node->line_index, "Unknown array '" + arr + "'!");
         }
         else {
             Result* index = traverse_tree(arrElem_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
@@ -146,13 +147,13 @@ Result* traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std
         if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
     }
     else if (assign_node) {
+        Result* val = traverse_tree(assign_node->assign_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        
         auto it = mp.find(assign_node->var_name);
         if (it == mp.end()) {
             mp[assign_node->var_name] = var_counter;
             var_counter += VAR_STEP;
         }
-        
-        Result* val = traverse_tree(assign_node->assign_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
         
         Result* res = traverse_tree(assign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
         
@@ -162,7 +163,7 @@ Result* traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std
     else if (arrElemAssign_node) {
         if (arrs.find(arrElemAssign_node->arr_name) == arrs.end()) {
             std::string arr = arrElemAssign_node->arr_name.substr(1, arrElemAssign_node->arr_name.length()-2);
-            return new Result(ErrType::_ERR_ARR_, arrElemAssign_node->line_index, "Unknown array '" + arr + "'");
+            return new Result(ErrType::_ERR_ARR_, arrElemAssign_node->line_index, "Unknown array '" + arr + "'!");
         }
         else {
             Result* index = traverse_tree(arrElemAssign_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
@@ -907,4 +908,22 @@ void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::strin
         }
         print_asm(while_node->next, mp, arrs);
     }
+};
+
+std::string get_err_line(int err_index, std::string filename) {
+    std::ifstream file(filename);
+    std::string result;
+    
+    int i = 1;
+    
+    if (file.is_open()) {
+        std::string line;
+        
+        while (std::getline(file, line) && i++ < err_index);
+        
+        result = line;
+        file.close();
+    }
+    
+    return result;
 };

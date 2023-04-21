@@ -202,4 +202,6 @@ void num_of_scans(ASTNode* ptr, int num);
 
 void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs);
 
+std::string get_err_line(int err_index, std::string filename);
+
 #endif
