@@ -39,4 +39,3 @@ This will create the parser. In order to run your code, you need to type a comma
 exp file_name.exp executable_name
 ```
 This will run the parser and compiler and translate your program to assembly file, which will later on be translated to an executable file. At the end, you can run your program by typing ```./executable_name``` .
-If you want to enable/disable variable-checking function, you can type ```enable``` or ```disable``` with the ```--var-check``` option.
