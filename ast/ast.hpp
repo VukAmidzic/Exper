@@ -9,9 +9,6 @@
 #ifndef AST_HPP
 #define AST_HPP
 
-const int VAR_STEP = 4;
-
-enum ArrayType { _STAT_, _DYN_ };
 
 enum Tag {
     _ADD_, _SUB_, _MUL_, _DIV_,
@@ -19,6 +16,22 @@ enum Tag {
     _GREAT_, _EQ_, _NEQ_, _LEQ_,
     _GEQ_, _AND_, _OR_, _NOT_,
     _NEG_
+};
+
+enum ArrayType { _STAT_, _DYN_ };
+   
+enum ErrType { _OK_, _ERR_VAR_, _ERR_ARR_ };
+
+class Result {
+public:
+    ErrType err;
+    int err_line;
+    std::string msg;
+    Result(ErrType _err, int _err_line, std::string _msg) {
+        err = _err;
+        err_line = _err_line;
+        msg = _msg;
+    };
 };
 
 class ASTNode {
@@ -182,10 +195,8 @@ public:
 
 int expr_eval(ASTNode* ptr, std::map<std::string, int>& mp);
 
-void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs,
+Result* traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs,
     int* loop_counter, int* if_counter, int* cond_counter, int* main_counter, int* arrayDecl_loop);
-
-std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::string, int>& mp);
 
 void num_of_scans(ASTNode* ptr, int num);
 

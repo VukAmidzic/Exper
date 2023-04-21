@@ -9,6 +9,8 @@
 #include <tuple>
 #include <vector>
 #include <utility>
+
+const int VAR_STEP = 4;
 int var_counter = 4;
 
 NumNode::NumNode(int _line_index, int _num) { line_index = _line_index; num = _num; };
@@ -98,7 +100,7 @@ WhileNode::WhileNode(int _line_index, int _while_num, int _main_num, ASTNode* _c
     next = _next;
 };
 
-void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs, 
+Result* traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs, 
     int* loop_counter, int* if_counter, int* cond_counter, int* main_counter, int* arrayDecl_loop) {
     auto* num_node = dynamic_cast<NumNode*>(ptr);
     auto* var_node = dynamic_cast<VarNode*>(ptr);
@@ -114,17 +116,34 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
     auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
     auto* while_node = dynamic_cast<WhileNode*>(ptr);
     
-    if (num_node) { return; }
-    else if (var_node) { return; }
+    if (num_node) { return new Result(ErrType::_OK_, -1, "") ; }
+    else if (var_node) { 
+        if (mp.find(var_node->var_name) == mp.end()) {
+            return new Result(ErrType::_ERR_VAR_, var_node->line_index, "Variable '" + var_node->var_name + "' not defined!");
+        }
+    }
     else if (arrElem_node) {
-        traverse_tree(arrElem_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        if (arrs.find(arrElem_node->arr_name) == arrs.end()) {
+            std::string arr = arrElem_node->arr_name.substr(1, arrElem_node->arr_name.length()-2);
+            return new Result(ErrType::_ERR_ARR_, arrElem_node->line_index, "Unknown array '" + arr + "'");
+        }
+        else {
+            Result* index = traverse_tree(arrElem_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        
+            if (index->err == ErrType::_ERR_VAR_) return index;
+        }
     }
     else if (bin_op_node) {
-        traverse_tree(bin_op_node->left, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
-        traverse_tree(bin_op_node->right, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* lhs = traverse_tree(bin_op_node->left, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* rhs = traverse_tree(bin_op_node->right, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        
+        if (lhs->err == ErrType::_ERR_VAR_ || lhs->err == ErrType::_ERR_ARR_) return lhs;
+        else if (rhs->err == ErrType::_ERR_VAR_ || rhs->err == ErrType::_ERR_ARR_) return rhs;
     }
     else if (main_node) {
-        traverse_tree(main_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* res = traverse_tree(main_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
     }
     else if (assign_node) {
         auto it = mp.find(assign_node->var_name);
@@ -133,26 +152,51 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
             var_counter += VAR_STEP;
         }
         
-        traverse_tree(assign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* val = traverse_tree(assign_node->assign_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        
+        Result* res = traverse_tree(assign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        
+        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_) return val;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
     }
     else if (arrElemAssign_node) {
-        traverse_tree(arrElemAssign_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
-        traverse_tree(arrElemAssign_node->assign_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
-        traverse_tree(arrElemAssign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        if (arrs.find(arrElemAssign_node->arr_name) == arrs.end()) {
+            std::string arr = arrElemAssign_node->arr_name.substr(1, arrElemAssign_node->arr_name.length()-2);
+            return new Result(ErrType::_ERR_ARR_, arrElemAssign_node->line_index, "Unknown array '" + arr + "'");
+        }
+        else {
+            Result* index = traverse_tree(arrElemAssign_node->elem_index, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            Result* val = traverse_tree(arrElemAssign_node->assign_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            Result* res = traverse_tree(arrElemAssign_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            
+            if (index->err == ErrType::_ERR_VAR_) return index;
+            else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_) return val;
+            else if (res->err == ErrType::_ERR_VAR_) return res;
+        }
     }
     else if (print_node) {
-        traverse_tree(print_node->print_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
-        traverse_tree(print_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* val = traverse_tree(print_node->print_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* res = traverse_tree(print_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        
+        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_) return val;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
     }
     else if (scan_node) {
-        traverse_tree(scan_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        if (mp.find(scan_node->var_name) == mp.end())
+            return new Result(ErrType::_ERR_VAR_, scan_node->line_index, "Variable '" + scan_node->var_name + "' not defined!");
+        
+        Result* res = traverse_tree(scan_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
     }
     else if (statArrDecl_node) {
         auto it = arrs.find(statArrDecl_node->arr_name);
         if (it == arrs.end()) { arrs[statArrDecl_node->arr_name] = {var_counter, _STAT_}; }
         
         for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
-            traverse_tree(statArrDecl_node->arr_vals[i], mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            Result* val = traverse_tree(statArrDecl_node->arr_vals[i], mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            
+            if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_) return val;
             
             std::string elem_name = statArrDecl_node->arr_name + std::to_string(i);
             
@@ -160,8 +204,10 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
             var_counter += VAR_STEP;
         }
         
-        traverse_tree(statArrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter,
+        Result* res = traverse_tree(statArrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter,
         main_counter, arrayDecl_loop);
+        
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
     }
     else if (dynArrDecl_node) {
         dynArrDecl_node->arrayDecl_loop = *arrayDecl_loop;
@@ -171,9 +217,13 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
         if (it == arrs.end()) { arrs[dynArrDecl_node->arr_name] = {var_counter, _DYN_};}
         var_counter += VAR_STEP;
         
-        traverse_tree(dynArrDecl_node->arr_size, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
-        traverse_tree(dynArrDecl_node->arr_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
-        traverse_tree(dynArrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* size = traverse_tree(dynArrDecl_node->arr_size, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* val = traverse_tree(dynArrDecl_node->arr_val, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* res = traverse_tree(dynArrDecl_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        
+        if (size->err == ErrType::_ERR_VAR_) return size;
+        else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_) return val;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
     }
     else if (if_else_node) {
         int n = if_else_node->conds.size();
@@ -187,16 +237,22 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
             *main_counter += 1;
             *cond_counter += 1;
             
-            traverse_tree(if_else_node->conds[0].first, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
-            traverse_tree(if_else_node->conds[0].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
-            traverse_tree(if_else_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            Result* cond = traverse_tree(if_else_node->conds[0].first, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            Result* stmts = traverse_tree(if_else_node->conds[0].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            Result* res = traverse_tree(if_else_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            
+            if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
+            else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
         }
         else {
             if_else_node->if_num = *if_counter;
             if_else_node->main_num = *main_counter;
             for (int i = 1; i < n; ++i) {
                 if_else_node->cond_num.push_back(*cond_counter + i - 1);
-                traverse_tree(if_else_node->conds[i].first, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+                Result* cond = traverse_tree(if_else_node->conds[i].first, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+                
+                if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
             }
             if_else_node->cond_num.push_back(*cond_counter + n - 1);
             *cond_counter += n;
@@ -204,11 +260,15 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
             
             for (int i = 1; i < n; ++i) {
                 *if_counter += 1;
-                traverse_tree(if_else_node->conds[i].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+                Result* stmts = traverse_tree(if_else_node->conds[i].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+                
+                if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
             }
-            traverse_tree(if_else_node->conds[0].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            Result* stmts = traverse_tree(if_else_node->conds[0].second, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            Result* res = traverse_tree(if_else_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
             
-            traverse_tree(if_else_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+            if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
         }
     }
     else if (while_node) {
@@ -217,129 +277,18 @@ void traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::s
         *loop_counter += 1;    
         *main_counter += 1;
         
-        traverse_tree(while_node->cond, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
-        traverse_tree(while_node->stmts, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
-        traverse_tree(while_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* cond = traverse_tree(while_node->cond, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* stmts = traverse_tree(while_node->stmts, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        Result* res = traverse_tree(while_node->next, mp, arrs, loop_counter, if_counter, cond_counter, main_counter, arrayDecl_loop);
+        
+        if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
+        else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
     }
-    else { return; }
+    
+    return new Result(ErrType::_OK_, -1, "");
 };
 
-std::tuple<std::string, bool, int> var_checker(ASTNode* ptr, std::map<std::string, int>& mp) {
-    auto* num_node = dynamic_cast<NumNode*>(ptr);
-    auto* var_node = dynamic_cast<VarNode*>(ptr);
-    auto* arrElem_node = dynamic_cast<ArrayElemNode*>(ptr);
-    auto* bin_op_node = dynamic_cast<BinaryNode*>(ptr);
-    auto* main_node = dynamic_cast<MainNode*>(ptr);
-    auto* assign_node = dynamic_cast<AssignNode*>(ptr);
-    auto* print_node = dynamic_cast<PrintNode*>(ptr);
-    auto* scan_node = dynamic_cast<ScanNode*>(ptr);
-    auto* statArrDecl_node = dynamic_cast<StatArrayDeclNode*>(ptr);
-    auto* dynArrDecl_node = dynamic_cast<DynArrayDeclNode*>(ptr);
-    auto* arrElemAssign_node = dynamic_cast<ArrayElemAssignNode*>(ptr);
-    auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
-    auto* while_node = dynamic_cast<WhileNode*>(ptr);
-    
-    if (num_node) { return {"", true, -1}; }
-    else if (var_node) {
-        if (mp.find(var_node->var_name) == mp.end()) return {var_node->var_name, false, var_node->line_index};
-        else return {"", true, -1};
-    }
-    else if (arrElem_node) {
-        std::tuple<std::string, bool, int> index = var_checker(arrElem_node->elem_index, mp);
-        
-        if (!std::get<1>(index)) return {std::get<0>(index), false, std::get<2>(index)};
-        else return {"", true, -1};
-    }
-    else if (bin_op_node) {
-        std::tuple<std::string, bool, int> lhs = var_checker(bin_op_node->left, mp);
-        std::tuple<std::string, bool, int> rhs = var_checker(bin_op_node->right, mp);
-                
-        if (!std::get<1>(lhs)) return {std::get<0>(lhs), false, std::get<2>(lhs)};
-        else if (!std::get<1>(rhs)) return {std::get<0>(rhs), false, std::get<2>(rhs)};
-        else return {"", true, -1};
-    }
-    else if (main_node) { return var_checker(main_node->next, mp); }
-    else if (assign_node) {
-        std::tuple<std::string, bool, int> val = var_checker(assign_node->assign_val, mp);
-        std::tuple<std::string, bool, int> next = var_checker(assign_node->next, mp);
-        
-        if (!std::get<1>(val)) return {std::get<0>(val), false, std::get<2>(val)};
-        else if (!std::get<1>(next)) return {std::get<0>(next), false, std::get<2>(next)};
-        else return {"", true, -1};
-    }
-    else if (arrElemAssign_node) {
-        std::tuple<std::string, bool, int> index = var_checker(arrElemAssign_node->elem_index, mp);
-        std::tuple<std::string, bool, int> val = var_checker(arrElemAssign_node->assign_val, mp);
-        std::tuple<std::string, bool, int> next = var_checker(arrElemAssign_node->next, mp);
-        
-        if (!std::get<1>(index)) return {std::get<0>(index), false, std::get<2>(index)};
-        else if (!std::get<1>(val)) return {std::get<0>(val), false, std::get<2>(val)};
-        else if (!std::get<1>(next)) return {std::get<0>(next), false, std::get<2>(next)};
-        else return {"", true, -1};
-    }
-    else if (print_node) {
-        std::tuple<std::string, bool, int> val = var_checker(print_node->print_val, mp);
-        std::tuple<std::string, bool, int> next = var_checker(print_node->next, mp);
-        
-        if (!std::get<1>(val)) return {std::get<0>(val), false, std::get<2>(val)};
-        else if (!std::get<1>(next)) return {std::get<0>(next), false, std::get<2>(next)};
-        else return {"", true, -1};
-    }
-    else if (scan_node) {
-        std::tuple<std::string, bool, int> next = var_checker(scan_node->next, mp);
-        if (!std::get<1>(next)) return {std::get<0>(next), false, std::get<2>(next)};
-        else if (mp.find(scan_node->var_name) == mp.end()) return {scan_node->var_name, false, scan_node->line_index};
-        else return {"", true, -1};
-    }
-    else if (statArrDecl_node) {
-        for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
-            std::tuple<std::string, bool, int> tmp = var_checker(statArrDecl_node->arr_vals[i], mp);
-            
-            if (!std::get<1>(tmp)) {return {std::get<0>(tmp), false, std::get<2>(tmp)}; }
-        }
-        
-        return var_checker(statArrDecl_node->next, mp);
-    }
-    else if (dynArrDecl_node) {
-        std::tuple<std::string, bool, int> size = var_checker(dynArrDecl_node->arr_size, mp);
-        if (!std::get<1>(size)) return {std::get<0>(size), false, std::get<2>(size)};
-        
-        std::tuple<std::string, bool, int> val = var_checker(dynArrDecl_node->arr_val, mp);
-        if (!std::get<1>(val)) return {std::get<0>(val), false, std::get<2>(val)};
-        
-        return var_checker(dynArrDecl_node->next, mp);
-    }
-    else if (if_else_node) {
-        std::tuple<std::string, bool, int> next = var_checker(if_else_node->next, mp);
-        if (!std::get<1>(next)) return {std::get<0>(next), false, std::get<2>(next)};
-        
-        int n = if_else_node->conds.size();
-        
-        if (n == 1) { return var_checker(if_else_node->conds[0].second, mp); }
-        else {
-            std::tuple<std::string, bool, int> tmp;
-            for (int i = 1; i < n; ++i) {
-                tmp = var_checker(if_else_node->conds[i].first, mp);
-                if (!std::get<1>(tmp)) return {std::get<0>(tmp), false, std::get<2>(tmp)};
-                tmp = var_checker(if_else_node->conds[i].second, mp);
-                if (!std::get<1>(tmp)) return {std::get<0>(tmp), false, std::get<2>(tmp)};
-            }
-            
-            return var_checker(if_else_node->conds[0].second, mp);
-        }
-    }
-    else if (while_node) {
-        std::tuple<std::string, bool, int> next = var_checker(while_node->next, mp);
-        if (!std::get<1>(next)) return {std::get<0>(next), false, std::get<2>(next)};
-        
-        std::tuple<std::string, bool, int> cond = var_checker(while_node->cond, mp);
-        if (!std::get<1>(cond)) return {std::get<0>(cond), false, std::get<2>(cond)};
-        
-        return var_checker(while_node->stmts, mp);
-    }
-    
-    return {"", true, -1};
-};
 
 void num_of_scans(ASTNode* ptr, int* num) {
     auto* num_node = dynamic_cast<NumNode*>(ptr);

@@ -12,7 +12,6 @@
     
     #define YYDEBUG 1
     #define YYERROR_VERBOSE 1
-    #define VARCHECK_ENABLE 1
     
     #define check_error(cond, msg) {\
         if (!(cond)) {\
@@ -225,6 +224,7 @@ N   : LP E RP { $$ = $2; }
 %%
 
 int main(int argc, char** argv) {
+
     check_error(argc == 2, "Incorrect number of arguments...");
     
     yyin = fopen(argv[1], "r");
@@ -233,16 +233,11 @@ int main(int argc, char** argv) {
     
     yyparse();
     
-    traverse_tree(prog, mp, arrs, &loop_counter, &if_counter, &cond_counter, &main_counter, &arrayDecl_loop);
-    
-    int varcheck_enabled = VARCHECK_ENABLE;
-    if (varcheck_enabled) {
-        std::tuple<std::string, bool, int> res = var_checker(prog, mp);
-        if (!std::get<1>(res)) {
-            std::cerr << "Error (" << argv[1] << ", line " << std::get<2>(res) << "):" << std::endl;
-            std::cerr << "Unknown variable '" << std::get<0>(res) << "'" << std::endl;
-            exit(EXIT_FAILURE);
-        }
+    Result* res = traverse_tree(prog, mp, arrs, &loop_counter, &if_counter, &cond_counter, &main_counter, &arrayDecl_loop);
+    if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) {
+        std::cerr << "Error in " << argv[1] << ", line " << res->err_line << ":" << std::endl; 
+        std::cerr << res->msg << std::endl;
+        exit(EXIT_FAILURE);
     }
     
     print_asm(prog, mp, arrs);
