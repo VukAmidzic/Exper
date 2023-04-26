@@ -1,10 +1,5 @@
 #include <string>
-#include <cstddef>
-#include <cstdlib>
-#include <map>
-#include <tuple>
 #include <vector>
-#include <utility>
 
 #ifndef AST_HPP
 #define AST_HPP
@@ -25,11 +20,11 @@ enum ErrType { _OK_, _ERR_VAR_, _ERR_ARR_ };
 class Result {
 public:
     ErrType err;
-    int err_line;
+    int err_index;
     std::string msg;
-    Result(ErrType _err, int _err_line, std::string _msg) {
+    Result(ErrType _err, int _err_index, std::string _msg) {
         err = _err;
-        err_line = _err_line;
+        err_index = _err_index;
         msg = _msg;
     };
 };
@@ -192,16 +187,5 @@ public:
         ASTNode* _next
     );
 };
-
-int expr_eval(ASTNode* ptr, std::map<std::string, int>& mp);
-
-Result* traverse_tree(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs,
-    int* loop_counter, int* if_counter, int* cond_counter, int* main_counter, int* arrayDecl_loop);
-
-void num_of_scans(ASTNode* ptr, int num);
-
-void print_asm(ASTNode* ptr, std::map<std::string, int>& mp, std::map<std::string, std::pair<int, ArrayType>>& arrs);
-
-std::string get_err_line(int err_index, std::string filename);
 
 #endif

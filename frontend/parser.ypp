@@ -1,5 +1,6 @@
 %{
     #include "ast/ast.hpp"
+    #include "ast/tree.hpp"
     #include <iostream>
     #include <cstdlib>
     #include <string>
@@ -9,6 +10,7 @@
     #include <vector>
     #include <utility>
     #include <algorithm>
+    #include <regex>
     
     #define YYDEBUG 1
     #define YYERROR_VERBOSE 1
@@ -20,8 +22,12 @@
         }\
     }\
     
-    extern FILE *yyin;
+    std::string trim(std::string s) {
+        std::regex e("^\\s+|\\s+$"); 
+        return std::regex_replace(s, e, "");
+    }
     
+    extern FILE *yyin;
     extern int yylex();
     extern int line_index;
     void yyerror(std::string s) {
@@ -238,15 +244,10 @@ int main(int argc, char** argv) {
     
     Result* res = traverse_tree(prog, mp, arrs, &loop_counter, &if_counter, &cond_counter, &main_counter, &arrayDecl_loop);
     if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) {
-        std::cerr << "Error in " << argv[1] << ", line " << res->err_line << ":\n" << std::endl; 
-        
-        std::string err_line = get_err_line(res->err_line, argv[1]);
-        
-        std::cerr << err_line << std::endl;
-        for (size_t i = 0; i < err_line.length(); ++i) {
-            std::cerr << "~";
-        }
-        std::cerr << "\n\n";
+        std::cerr << "Error in " << argv[1] << ", line " << res->err_index << ":\n" << std::endl; 
+
+        std::string err_line = trim(get_err_line(res->err_index, argv[1]));
+        std::cerr << res->err_index << ": " << err_line << "\n" << std::endl;
         
         std::cerr << res->msg << std::endl;
         exit(EXIT_FAILURE);
