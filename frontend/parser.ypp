@@ -50,7 +50,7 @@
 %token<id> ID
 
 %type<node> expr E T F Q S P N
-%type<node> program stmts stmt print scan assign if_else while_stmt
+%type<node> program stmts stmt print scan assign if_else while_stmt return func_def func_call
 %type<els> else_stmt
 %type<elems> elems
 
@@ -61,7 +61,8 @@
 %token LP RP LCP RCP LQP RQP
 %token GREAT LESS EQ NEQ GEQ LEQ 
 %token AND OR NOT 
-%token SEMIC COMMA ASSIGN PRINT SCAN
+%token SEMIC COMMA ASSIGN PRINT SCAN 
+%token RET DEF CALL
 %token IF ELSE WHILE
 
 %start program
@@ -90,8 +91,34 @@ stmt    : assign SEMIC { $$ = $1; }
         | print SEMIC { $$ = $1; }
         | scan SEMIC { $$ = $1; }
         | if_else SEMIC { $$ = $1; }
-        | while_stmt SEMIC { $$ = $1; };
+        | while_stmt SEMIC { $$ = $1; }
+        | return SEMIC { $$ = $1; }
+        | func_def SEMIC {$$ = $1; }
+        | func_call SEMIC {$$ = $1; };
 
+//FuncDef(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, FuncState _func_state, 
+        //ASTNode* _func_stmts, ASTNode* _next);
+func_def    : DEF ID LP elems RP LCP stmts RCP {
+                FuncState state;
+                $$ = new FuncDef(line_index, *$2, *$4, state, $7, nullptr);
+                MainNode* tmp = new MainNode(line_index, nullptr);
+                
+                if (FuncDef* it = dynamic_cast<FuncDef*>($$)) {
+                    tmp->next = it->func_stmts;
+                    it->func_stmts = tmp;
+                    $$ = it;
+                }
+            };        
+
+//FuncCall(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, ASTNode* _next);
+func_call   : CALL ID LP elems RP {
+                $$ = new FuncCall(line_index, *$2, *$4, nullptr);
+            };            
+
+return      : RET expr {
+                $$ = new ReturnNode(line_index, $2, nullptr);
+            };
+            
 while_stmt  : WHILE LP expr RP LCP stmts RCP {
                 $$ = new WhileNode(line_index, 0, 0, $3, $6, nullptr);
             };
@@ -225,7 +252,6 @@ N   : LP E RP { $$ = $2; }
 %%
 
 int main(int argc, char** argv) {
-
     check_error(argc == 2, "Incorrect number of arguments...");
     
     yyin = fopen(argv[1], "r");
@@ -235,7 +261,7 @@ int main(int argc, char** argv) {
     yyparse();
     
     Result* res = traverse_tree(prog, &state);
-    if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) {
+    if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) {
         std::cerr << "Error in " << argv[1] << ", line " << res->err_index << ":\n" << std::endl; 
 
         std::string err_line = trim(get_err_line(res->err_index, argv[1]));
@@ -245,6 +271,7 @@ int main(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
     
+    std::cout << "#NUMBER OF FUNCS: " + std::to_string(state.funcs.size()) << std::endl; 
     print_asm(prog, state);
     
     exit(EXIT_SUCCESS);

@@ -14,7 +14,7 @@ fi
 
 lex frontend/lexer.l
 echo "[INFO] Lexer successfully built"
-bison -d frontend/parser.ypp 2>/dev/null
+bison -d frontend/parser.ypp 2>/dev/null || (exit 0)
 g++ -Wall -Wextra ast/ast.cpp lex.yy.c parser.tab.cpp -g -o exp
 echo "[INFO] Parser successfully built"
 

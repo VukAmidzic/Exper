@@ -5,6 +5,12 @@
 #ifndef AST_HPP
 #define AST_HPP
 
+class ASTNode {
+public:
+    int line_index;
+    virtual ~ASTNode() = default;
+};
+
 enum Tag {
     _ADD_, _SUB_, _MUL_, _DIV_,
     _MOD_, _SHL_, _SHR_, _LESS_,
@@ -15,9 +21,21 @@ enum Tag {
 
 enum ArrayType { _STAT_, _DYN_ };
    
-enum ErrType { _OK_, _ERR_VAR_, _ERR_ARR_ };
+enum ErrType { _OK_, _ERR_VAR_, _ERR_ARR_, _ERR_FUNC_EXIST_ };
 
 typedef struct ProgState {
+    std::map<std::string, int> vars;
+    std::map<std::string, std::pair<int, ArrayType>> arrs;
+    std::map<std::string, ASTNode*> funcs;
+    int var_counter = 4;
+    int arrayDecl_loop = 0;
+    int main_counter = 0;
+    int loop_counter = 0;
+    int if_counter = 0;
+    int cond_counter = 0;
+} ProgState;
+
+typedef struct FuncState {
     std::map<std::string, int> vars;
     std::map<std::string, std::pair<int, ArrayType>> arrs;
     int var_counter = 4;
@@ -26,7 +44,7 @@ typedef struct ProgState {
     int loop_counter = 0;
     int if_counter = 0;
     int cond_counter = 0;
-} ProgState;
+} FuncState;
 
 class Result {
 public:
@@ -38,12 +56,6 @@ public:
         err_index = _err_index;
         msg = _msg;
     };
-};
-
-class ASTNode {
-public:
-    int line_index;
-    virtual ~ASTNode() = default;
 };
 
 class NumNode : public ASTNode {
@@ -197,6 +209,34 @@ public:
         ASTNode* _stmts, 
         ASTNode* _next
     );
+};
+
+class ReturnNode : public StatementNode {
+public:
+    ASTNode* return_val;
+    ReturnNode(int _line_index, ASTNode* _return_val, ASTNode* _next);
+};
+
+class FuncDef : public StatementNode {
+public:
+    std::string func_name;
+    std::vector<ASTNode*> func_args;
+    FuncState func_state;
+    ASTNode* func_stmts;
+    FuncDef(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, FuncState _func_state, 
+        ASTNode* _func_stmts, ASTNode* _next);
+    
+    Result* traverse_func_tree(ASTNode* ptr);
+    void print_func_asm(ASTNode* ptr);
+private:
+    std::vector<std::string> asm_args = {"rdi", "rsi"};
+};
+
+class FuncCall : public StatementNode {
+public:
+    std::string func_name;
+    std::vector<ASTNode*> func_args;
+    FuncCall(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, ASTNode* _next);
 };
 
 Result* traverse_tree(ASTNode* ptr, ProgState* state);

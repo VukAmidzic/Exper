@@ -20,6 +20,10 @@
 "if" { return IF; }
 "else" { return ELSE; }
 "while" { return WHILE; }
+"ret" { return RET; }
+"def" { return DEF; }
+"call" { return CALL; }
+
 
 [a-zA-Z][a-zA-Z_0-9]* {
     yylval.id = new std::string(yytext);

@@ -8,285 +8,17 @@
 #include <map>
 #include <tuple>
 #include <vector>
+#include <iterator>
 #include <utility>
 #include <fstream>
 
-NumNode::NumNode(int _line_index, int _num) { line_index = _line_index; num = _num; };
-
-VarNode::VarNode(int _line_index, std::string _var_name) { line_index = _line_index; var_name = _var_name; };
-
-ArrayElemNode::ArrayElemNode(int _line_index, std::string _arr_name, ASTNode* _elem_index) {
-    line_index = _line_index;
-    arr_name = _arr_name;
-    elem_index = _elem_index;
-};
-
-BinaryNode::BinaryNode(int _line_index, Tag _tag, ASTNode* _left, ASTNode* _right) {
-    line_index = _line_index;
-    tag = _tag;
-    left = _left;
-    right = _right;
-};
-
-MainNode::MainNode(int _line_index, ASTNode* _next) {
-    line_index = _line_index;
-    next = _next;
-};
-
-AssignNode::AssignNode(int _line_index, std::string _var_name, ASTNode* _assign_val, ASTNode* _next) {
-    line_index = _line_index;
-    var_name = _var_name;
-    assign_val = _assign_val;
-    next = _next;
-};
-
-StatArrayDeclNode::StatArrayDeclNode(int _line_index, std::string _arr_name, int _arr_size, 
-    std::vector<ASTNode*> _arr_vals, ASTNode* _next) {
-    line_index = _line_index;
-    arr_name = _arr_name;
-    arr_size = _arr_size;
-    arr_vals = _arr_vals;
-    next = _next;
-};
-
-DynArrayDeclNode::DynArrayDeclNode(int _line_index, int _arrayDecl_loop, std::string _arr_name, ASTNode* _arr_size, 
-    ASTNode* _arr_val, ASTNode* _next) {
-    line_index = _line_index;
-    arrayDecl_loop = _arrayDecl_loop;
-    arr_name = _arr_name;
-    arr_size = _arr_size;
-    arr_val = _arr_val;
-    next = _next;
-}
-
-ArrayElemAssignNode::ArrayElemAssignNode(int _line_index, std::string _arr_name, ASTNode* _elem_index, 
-    ASTNode* _assign_val, ASTNode* _next) {
-    line_index = _line_index;
-    arr_name = _arr_name;
-    elem_index = _elem_index;
-    assign_val = _assign_val;
-    next = _next;
-};
-
-PrintNode::PrintNode(int _line_index, ASTNode* _print_val, ASTNode* _next) {
-    line_index = _line_index;
-    print_val = _print_val;
-    next = _next;
-};
-
-ScanNode::ScanNode(int _line_index, std::string _var_name, ASTNode* _next) {
-    line_index = _line_index;
-    var_name = _var_name;
-    next = _next;
-};
-
-IfElseNode::IfElseNode(int _line_index, int _if_num, int _main_num, std::vector<std::pair<ASTNode*, ASTNode*>> _conds, std::vector<int> _cond_num, ASTNode* _next) {
-    line_index = _line_index;
-    if_num = _if_num;
-    main_num = _main_num;
-    conds = _conds;
-    cond_num = _cond_num;
-    next = _next;
-};
-
-WhileNode::WhileNode(int _line_index, int _while_num, int _main_num, ASTNode* _cond, ASTNode* _stmts, ASTNode* _next) {
-    line_index = _line_index;
-    while_num = _while_num;
-    main_num = _main_num;
-    cond = _cond; 
-    stmts = _stmts; 
-    next = _next;
-};
-
 const int VAR_STEP = 4;
 
-Result* traverse_tree(ASTNode* ptr, ProgState* state) {
-    auto* num_node = dynamic_cast<NumNode*>(ptr);
-    auto* var_node = dynamic_cast<VarNode*>(ptr);
-    auto* arrElem_node = dynamic_cast<ArrayElemNode*>(ptr);
-    auto* bin_op_node = dynamic_cast<BinaryNode*>(ptr);
-    auto* main_node = dynamic_cast<MainNode*>(ptr);
-    auto* assign_node = dynamic_cast<AssignNode*>(ptr);
-    auto* print_node = dynamic_cast<PrintNode*>(ptr);
-    auto* scan_node = dynamic_cast<ScanNode*>(ptr);
-    auto* statArrDecl_node = dynamic_cast<StatArrayDeclNode*>(ptr);
-    auto* dynArrDecl_node = dynamic_cast<DynArrayDeclNode*>(ptr);
-    auto* arrElemAssign_node = dynamic_cast<ArrayElemAssignNode*>(ptr);
-    auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
-    auto* while_node = dynamic_cast<WhileNode*>(ptr);
-    
-    if (num_node) { return new Result(ErrType::_OK_, -1, "") ; }
-    else if (var_node) { 
-        if (state->vars.find(var_node->var_name) == state->vars.end()) {
-            return new Result(ErrType::_ERR_VAR_, var_node->line_index, "Variable '" + var_node->var_name + "' not defined!");
-        }
-    }
-    else if (arrElem_node) {
-        if (state->arrs.find(arrElem_node->arr_name) == state->arrs.end()) {
-            std::string arr = arrElem_node->arr_name.substr(1, arrElem_node->arr_name.length()-2);
-            return new Result(ErrType::_ERR_ARR_, arrElem_node->line_index, "Unknown array '" + arr + "'!");
-        }
-        else {
-            Result* index = traverse_tree(arrElem_node->elem_index, state);
-        
-            if (index->err == ErrType::_ERR_VAR_) return index;
-        }
-    }
-    else if (bin_op_node) {
-        Result* lhs = traverse_tree(bin_op_node->left, state);
-        Result* rhs = traverse_tree(bin_op_node->right, state);
-        
-        if (lhs->err == ErrType::_ERR_VAR_ || lhs->err == ErrType::_ERR_ARR_) return lhs;
-        else if (rhs->err == ErrType::_ERR_VAR_ || rhs->err == ErrType::_ERR_ARR_) return rhs;
-    }
-    else if (main_node) {
-        Result* res = traverse_tree(main_node->next, state);
-        
-        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
-    }
-    else if (assign_node) {
-        Result* val = traverse_tree(assign_node->assign_val, state);
-        
-        auto it = state->vars.find(assign_node->var_name);
-        if (it == state->vars.end()) {
-            state->vars[assign_node->var_name] = state->var_counter;
-            state->var_counter += VAR_STEP;
-        }
-        
-        Result* res = traverse_tree(assign_node->next, state);
-        
-        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_) return val;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
-    }
-    else if (arrElemAssign_node) {
-        if (state->arrs.find(arrElemAssign_node->arr_name) == state->arrs.end()) {
-            std::string arr = arrElemAssign_node->arr_name.substr(1, arrElemAssign_node->arr_name.length()-2);
-            return new Result(ErrType::_ERR_ARR_, arrElemAssign_node->line_index, "Unknown array '" + arr + "'!");
-        }
-        else {
-            Result* index = traverse_tree(arrElemAssign_node->elem_index, state);
-            Result* val = traverse_tree(arrElemAssign_node->assign_val, state);
-            Result* res = traverse_tree(arrElemAssign_node->next, state);
-            
-            if (index->err == ErrType::_ERR_VAR_) return index;
-            else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_) return val;
-            else if (res->err == ErrType::_ERR_VAR_) return res;
-        }
-    }
-    else if (print_node) {
-        Result* val = traverse_tree(print_node->print_val, state);
-        Result* res = traverse_tree(print_node->next, state);
-        
-        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_) return val;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
-    }
-    else if (scan_node) {
-        if (state->vars.find(scan_node->var_name) == state->vars.end())
-            return new Result(ErrType::_ERR_VAR_, scan_node->line_index, "Variable '" + scan_node->var_name + "' not defined!");
-        
-        Result* res = traverse_tree(scan_node->next, state);
-        
-        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
-    }
-    else if (statArrDecl_node) {
-        auto it = state->arrs.find(statArrDecl_node->arr_name);
-        if (it == state->arrs.end()) { state->arrs[statArrDecl_node->arr_name] = {state->var_counter, _STAT_}; }
-        
-        for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
-            Result* val = traverse_tree(statArrDecl_node->arr_vals[i], state);
-            
-            if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_) return val;
-            
-            std::string elem_name = statArrDecl_node->arr_name + std::to_string(i);
-            
-            state->vars[elem_name] = state->var_counter;
-            state->var_counter += VAR_STEP;
-        }
-        
-        Result* res = traverse_tree(statArrDecl_node->next, state);
-        
-        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
-    }
-    else if (dynArrDecl_node) {
-        dynArrDecl_node->arrayDecl_loop = state->arrayDecl_loop;
-        state->arrayDecl_loop += 1;
-        
-        auto it = state->arrs.find(dynArrDecl_node->arr_name);
-        if (it == state->arrs.end()) { state->arrs[dynArrDecl_node->arr_name] = {state->var_counter, _DYN_};}
-        state->var_counter += VAR_STEP;
-        
-        Result* size = traverse_tree(dynArrDecl_node->arr_size, state);
-        Result* val = traverse_tree(dynArrDecl_node->arr_val, state);
-        Result* res = traverse_tree(dynArrDecl_node->next, state);
-        
-        if (size->err == ErrType::_ERR_VAR_) return size;
-        else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_) return val;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
-    }
-    else if (if_else_node) {
-        int n = if_else_node->conds.size();
-        
-        if (n == 1) {
-            if_else_node->if_num = state->if_counter;
-            if_else_node->main_num = state->main_counter;
-            if_else_node->cond_num.push_back(state->cond_counter);
-            
-            state->if_counter += 1;
-            state->main_counter += 1;
-            state->cond_counter += 1;
-            
-            Result* cond = traverse_tree(if_else_node->conds[0].first, state);
-            Result* stmts = traverse_tree(if_else_node->conds[0].second, state);
-            Result* res = traverse_tree(if_else_node->next, state);
-            
-            if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
-            else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
-            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
-        }
-        else {
-            if_else_node->if_num = state->if_counter;
-            if_else_node->main_num = state->main_counter;
-            for (int i = 1; i < n; ++i) {
-                if_else_node->cond_num.push_back(state->cond_counter + i - 1);
-                Result* cond = traverse_tree(if_else_node->conds[i].first, state);
-                
-                if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
-            }
-            if_else_node->cond_num.push_back(state->cond_counter + n - 1);
-            state->cond_counter += n;
-            state->main_counter += n;
-            
-            for (int i = 1; i < n; ++i) {
-                state->if_counter += 1;
-                Result* stmts = traverse_tree(if_else_node->conds[i].second, state);
-                
-                if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
-            }
-            Result* stmts = traverse_tree(if_else_node->conds[0].second, state);
-            Result* res = traverse_tree(if_else_node->next, state);
-            
-            if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
-            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
-        }
-    }
-    else if (while_node) {
-        while_node->while_num = state->loop_counter;
-        while_node->main_num = state->main_counter;
-        state->loop_counter += 1;    
-        state->main_counter += 1;
-        
-        Result* cond = traverse_tree(while_node->cond, state);
-        Result* stmts = traverse_tree(while_node->stmts, state);
-        Result* res = traverse_tree(while_node->next, state);
-        
-        if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
-        else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
-    }
-    
-    return new Result(ErrType::_OK_, -1, "");
-};
-
+int get_size(int n) {
+    int i = 16;    
+    while (i < n) i += 16;
+    return i;
+}
 
 void num_of_scans(ASTNode* ptr, int* num) {
     auto* num_node = dynamic_cast<NumNode*>(ptr);
@@ -433,11 +165,961 @@ int num_expr_eval(ASTNode* ptr, int res) {
     return res;
 }
 
-int get_size(int n) {
-    int i = 16;    
-    while (i < n) i += 16;
-    return i;
+NumNode::NumNode(int _line_index, int _num) { line_index = _line_index; num = _num; };
+
+VarNode::VarNode(int _line_index, std::string _var_name) { line_index = _line_index; var_name = _var_name; };
+
+ArrayElemNode::ArrayElemNode(int _line_index, std::string _arr_name, ASTNode* _elem_index) {
+    line_index = _line_index;
+    arr_name = _arr_name;
+    elem_index = _elem_index;
+};
+
+BinaryNode::BinaryNode(int _line_index, Tag _tag, ASTNode* _left, ASTNode* _right) {
+    line_index = _line_index;
+    tag = _tag;
+    left = _left;
+    right = _right;
+};
+
+MainNode::MainNode(int _line_index, ASTNode* _next) {
+    line_index = _line_index;
+    next = _next;
+};
+
+AssignNode::AssignNode(int _line_index, std::string _var_name, ASTNode* _assign_val, ASTNode* _next) {
+    line_index = _line_index;
+    var_name = _var_name;
+    assign_val = _assign_val;
+    next = _next;
+};
+
+StatArrayDeclNode::StatArrayDeclNode(int _line_index, std::string _arr_name, int _arr_size, 
+    std::vector<ASTNode*> _arr_vals, ASTNode* _next) {
+    line_index = _line_index;
+    arr_name = _arr_name;
+    arr_size = _arr_size;
+    arr_vals = _arr_vals;
+    next = _next;
+};
+
+DynArrayDeclNode::DynArrayDeclNode(int _line_index, int _arrayDecl_loop, std::string _arr_name, ASTNode* _arr_size, 
+    ASTNode* _arr_val, ASTNode* _next) {
+    line_index = _line_index;
+    arrayDecl_loop = _arrayDecl_loop;
+    arr_name = _arr_name;
+    arr_size = _arr_size;
+    arr_val = _arr_val;
+    next = _next;
 }
+
+ArrayElemAssignNode::ArrayElemAssignNode(int _line_index, std::string _arr_name, ASTNode* _elem_index, 
+    ASTNode* _assign_val, ASTNode* _next) {
+    line_index = _line_index;
+    arr_name = _arr_name;
+    elem_index = _elem_index;
+    assign_val = _assign_val;
+    next = _next;
+};
+
+PrintNode::PrintNode(int _line_index, ASTNode* _print_val, ASTNode* _next) {
+    line_index = _line_index;
+    print_val = _print_val;
+    next = _next;
+};
+
+ScanNode::ScanNode(int _line_index, std::string _var_name, ASTNode* _next) {
+    line_index = _line_index;
+    var_name = _var_name;
+    next = _next;
+};
+
+IfElseNode::IfElseNode(int _line_index, int _if_num, int _main_num, std::vector<std::pair<ASTNode*, ASTNode*>> _conds, std::vector<int> _cond_num, ASTNode* _next) {
+    line_index = _line_index;
+    if_num = _if_num;
+    main_num = _main_num;
+    conds = _conds;
+    cond_num = _cond_num;
+    next = _next;
+};
+
+WhileNode::WhileNode(int _line_index, int _while_num, int _main_num, ASTNode* _cond, ASTNode* _stmts, ASTNode* _next) {
+    line_index = _line_index;
+    while_num = _while_num;
+    main_num = _main_num;
+    cond = _cond; 
+    stmts = _stmts; 
+    next = _next;
+};
+
+ReturnNode::ReturnNode(int _line_index, ASTNode* _return_val, ASTNode* _next) {
+    line_index = _line_index;
+    return_val = _return_val;
+    next = _next;
+};
+
+FuncDef::FuncDef(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, FuncState _func_state, 
+        ASTNode* _func_stmts, ASTNode* _next) {
+    line_index = _line_index;
+    func_name = _func_name;
+    func_args = _func_args;
+    func_state = _func_state;
+    func_stmts = _func_stmts;
+    next = _next;
+};
+
+Result* FuncDef::traverse_func_tree(ASTNode* ptr) {
+    auto* num_node = dynamic_cast<NumNode*>(ptr);
+    auto* var_node = dynamic_cast<VarNode*>(ptr);
+    auto* arrElem_node = dynamic_cast<ArrayElemNode*>(ptr);
+    auto* bin_op_node = dynamic_cast<BinaryNode*>(ptr);
+    auto* main_node = dynamic_cast<MainNode*>(ptr);
+    auto* assign_node = dynamic_cast<AssignNode*>(ptr);
+    auto* print_node = dynamic_cast<PrintNode*>(ptr);
+    auto* scan_node = dynamic_cast<ScanNode*>(ptr);
+    auto* statArrDecl_node = dynamic_cast<StatArrayDeclNode*>(ptr);
+    auto* dynArrDecl_node = dynamic_cast<DynArrayDeclNode*>(ptr);
+    auto* arrElemAssign_node = dynamic_cast<ArrayElemAssignNode*>(ptr);
+    auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
+    auto* while_node = dynamic_cast<WhileNode*>(ptr);
+    auto* return_node = dynamic_cast<ReturnNode*>(ptr);
+    
+    if (num_node) { return new Result(ErrType::_OK_, -1, "") ; }
+    else if (var_node) { 
+        if (this->func_state.vars.find(var_node->var_name) == this->func_state.vars.end()) {
+            return new Result(ErrType::_ERR_VAR_, var_node->line_index, "Variable '" + var_node->var_name + "' not defined!");
+        }
+    }
+    else if (arrElem_node) {
+        if (this->func_state.arrs.find(arrElem_node->arr_name) == this->func_state.arrs.end()) {
+            std::string arr = arrElem_node->arr_name.substr(1, arrElem_node->arr_name.length()-2);
+            return new Result(ErrType::_ERR_ARR_, arrElem_node->line_index, "Unknown array '" + arr + "'!");
+        }
+        else {
+            Result* index = traverse_func_tree(arrElemAssign_node->elem_index);
+        
+            if (index->err == ErrType::_ERR_VAR_ || index->err == ErrType::_ERR_FUNC_EXIST_) return index;
+        }
+    }
+    else if (bin_op_node) {
+        Result* lhs = traverse_func_tree(bin_op_node->left);
+        Result* rhs = traverse_func_tree(bin_op_node->right);
+        
+        if (lhs->err == ErrType::_ERR_VAR_ || lhs->err == ErrType::_ERR_ARR_ || lhs->err == ErrType::_ERR_FUNC_EXIST_) return lhs;
+        else if (rhs->err == ErrType::_ERR_VAR_ || rhs->err == ErrType::_ERR_ARR_ || rhs->err == ErrType::_ERR_FUNC_EXIST_) return rhs;
+    }
+    else if (main_node) {
+        Result* res = traverse_func_tree(main_node->next);
+        
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (assign_node) {
+        Result* val = traverse_func_tree(assign_node->assign_val);
+        
+        auto it = this->func_state.vars.find(assign_node->var_name);
+        if (it == this->func_state.vars.end()) {
+            this->func_state.vars[assign_node->var_name] = this->func_state.var_counter;
+            this->func_state.var_counter += VAR_STEP;
+        }
+        
+        Result* res = traverse_func_tree(assign_node->next);
+        
+        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (arrElemAssign_node) {
+        if (this->func_state.arrs.find(arrElemAssign_node->arr_name) == this->func_state.arrs.end()) {
+            std::string arr = arrElemAssign_node->arr_name.substr(1, arrElemAssign_node->arr_name.length()-2);
+            return new Result(ErrType::_ERR_ARR_, arrElemAssign_node->line_index, "Unknown array '" + arr + "'!");
+        }
+        else {
+            Result* index = traverse_func_tree(arrElemAssign_node->elem_index);
+            Result* val = traverse_func_tree(arrElemAssign_node->assign_val);
+            Result* res = traverse_func_tree(arrElemAssign_node->next);
+            
+            if (index->err == ErrType::_ERR_VAR_ || index->err == ErrType::_ERR_FUNC_EXIST_) return index;
+            else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
+            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        }
+    }
+    else if (print_node) {
+        Result* val = traverse_func_tree(print_node->print_val);
+        Result* res = traverse_func_tree(print_node->next);
+        
+        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_ARR_) return val;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (scan_node) {
+        if (this->func_state.vars.find(scan_node->var_name) == this->func_state.vars.end())
+            return new Result(ErrType::_ERR_VAR_, scan_node->line_index, "Variable '" + scan_node->var_name + "' not defined!");
+        
+        Result* res = traverse_func_tree(scan_node->next);
+        
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+    }
+    else if (statArrDecl_node) {
+        auto it = this->func_state.arrs.find(statArrDecl_node->arr_name);
+        if (it == this->func_state.arrs.end()) { this->func_state.arrs[statArrDecl_node->arr_name] = {this->func_state.var_counter, _STAT_}; }
+        
+        for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
+            Result* val = traverse_func_tree(statArrDecl_node->arr_vals[i]);
+            
+            if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_ARR_) return val;
+            
+            std::string elem_name = statArrDecl_node->arr_name + std::to_string(i);
+            
+            this->func_state.vars[elem_name] = this->func_state.var_counter;
+            this->func_state.var_counter += VAR_STEP;
+        }
+        
+        Result* res = traverse_func_tree(statArrDecl_node->next);
+        
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (dynArrDecl_node) {
+        dynArrDecl_node->arrayDecl_loop = this->func_state.arrayDecl_loop;
+        this->func_state.arrayDecl_loop += 1;
+        
+        auto it = this->func_state.arrs.find(dynArrDecl_node->arr_name);
+        if (it == this->func_state.arrs.end()) { this->func_state.arrs[dynArrDecl_node->arr_name] = {this->func_state.var_counter, _DYN_};}
+        this->func_state.var_counter += VAR_STEP;
+        
+        Result* size = traverse_func_tree(dynArrDecl_node->arr_size);
+        Result* val = traverse_func_tree(dynArrDecl_node->arr_val);
+        Result* res = traverse_func_tree(dynArrDecl_node->next);
+        
+        if (size->err == ErrType::_ERR_VAR_) return size;
+        else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (if_else_node) {
+        int n = if_else_node->conds.size();
+        
+        if (n == 1) {
+            if_else_node->if_num = this->func_state.if_counter;
+            if_else_node->main_num = this->func_state.main_counter;
+            if_else_node->cond_num.push_back(this->func_state.cond_counter);
+            
+            this->func_state.if_counter += 1;
+            this->func_state.main_counter += 1;
+            this->func_state.cond_counter += 1;
+            
+            Result* cond = traverse_func_tree(if_else_node->conds[0].first);
+            Result* stmts = traverse_func_tree(if_else_node->conds[0].second);
+            Result* res = traverse_func_tree(if_else_node->next);
+            
+            if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
+            else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+        }
+        else {
+            if_else_node->if_num = this->func_state.if_counter;
+            if_else_node->main_num = this->func_state.main_counter;
+            for (int i = 1; i < n; ++i) {
+                if_else_node->cond_num.push_back(this->func_state.cond_counter + i - 1);
+                Result* cond = traverse_func_tree(if_else_node->conds[i].first);
+                
+                if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
+            }
+            if_else_node->cond_num.push_back(this->func_state.cond_counter + n - 1);
+            this->func_state.cond_counter += n;
+            this->func_state.main_counter += n;
+            
+            for (int i = 1; i < n; ++i) {
+                this->func_state.if_counter += 1;
+                Result* stmts = traverse_func_tree(if_else_node->conds[i].second);
+                
+                if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+            }
+            Result* stmts = traverse_func_tree(if_else_node->conds[0].second);
+            Result* res = traverse_func_tree(if_else_node->next);
+            
+            if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+        }
+    }
+    else if (while_node) {
+        while_node->while_num = this->func_state.loop_counter;
+        while_node->main_num = this->func_state.main_counter;
+        this->func_state.loop_counter += 1;    
+        this->func_state.main_counter += 1;
+        
+        Result* cond = traverse_func_tree(while_node->cond);
+        Result* stmts = traverse_func_tree(while_node->stmts);
+        Result* res = traverse_func_tree(while_node->next);
+        
+        if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
+        else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+    }
+    else if (return_node) {
+        Result* val = traverse_func_tree(return_node->return_val);
+        Result* res = traverse_func_tree(return_node->next);
+        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    
+    return new Result(ErrType::_OK_, -1, "");
+};
+
+void FuncDef::print_func_asm(ASTNode* ptr) {
+    auto* num_node = dynamic_cast<NumNode*>(ptr);
+    auto* var_node = dynamic_cast<VarNode*>(ptr);
+    auto* bin_op_node = dynamic_cast<BinaryNode*>(ptr);
+    auto* main_node = dynamic_cast<MainNode*>(ptr);
+    auto* assign_node = dynamic_cast<AssignNode*>(ptr);
+    auto* print_node = dynamic_cast<PrintNode*>(ptr);
+    auto* scan_node = dynamic_cast<ScanNode*>(ptr);
+    auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
+    auto* while_node = dynamic_cast<WhileNode*>(ptr);
+    auto* return_node = dynamic_cast<ReturnNode*>(ptr);
+    
+    if (num_node) {
+        std::cout << "  mov rax, " << num_node->num << std::endl;
+    }
+    else if (var_node) {
+        auto it = std::find(this->func_args.begin(), this->func_args.end(), var_node);
+        if (it == this->func_args.end()) {
+            std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * this->func_state.vars[var_node->var_name] << "]" << std::endl;
+        }
+        else {
+            std::cout << "  mov rax, " + asm_args[std::distance(this->func_args.begin(), it)] << std::endl;
+        }
+    }
+    else if (bin_op_node) {
+        switch (bin_op_node->tag) {
+            case _ADD_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  add rax, rbx" << std::endl;
+                break;
+            }
+            case _SUB_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  pop rax" << std::endl;
+                std::cout << "  sub rax, rbx" << std::endl;
+                break;
+            }
+            case _MUL_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  imul rax, rbx" << std::endl;
+                break;
+            }
+            case _DIV_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  mov rax, rbx" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  cqo" << std::endl;
+                std::cout << "  xor rdx, rdx" << std::endl;
+                std::cout << "  idiv rbx" << std::endl;
+                break;
+            }
+            case _MOD_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  mov rax, rbx" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  cqo" << std::endl;
+                std::cout << "  xor rdx, rdx" << std::endl;
+                std::cout << "  idiv rbx" << std::endl;
+                std::cout << "  mov rax, rdx" << std::endl;
+                break;
+            }
+            case _SHL_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  mov rax, rbx" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  mov rdi, rax" << std::endl;
+                std::cout << "  mov rsi, rbx" << std::endl;
+                std::cout << "  call shlf" << std::endl;
+                break;
+            }
+            case _SHR_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  mov rax, rbx" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  mov rdi, rax" << std::endl;
+                std::cout << "  mov rsi, rbx" << std::endl;
+                std::cout << "  call shrf" << std::endl;
+                break;
+            }
+            case _AND_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  and rax, rbx" << std::endl;
+                break;
+            }
+            case _OR_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  or rax, rbx" << std::endl;
+                break;
+            }
+            case _NOT_ : {
+                print_func_asm(bin_op_node->right);
+                std::cout << "  not rax" << std::endl;
+                break;
+            }
+            case _LESS_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  pop rax" << std::endl;
+                std::cout << "  mov rdi, rax" << std::endl;
+                std::cout << "  mov rsi, rbx" << std::endl;
+                std::cout << "  call cmp_less" << std::endl;  
+                break;
+            }
+            case _GREAT_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  pop rax" << std::endl;
+                std::cout << "  mov rdi, rax" << std::endl;
+                std::cout << "  mov rsi, rbx" << std::endl;
+                std::cout << "  call cmp_great" << std::endl; 
+                break;
+            }
+            case _EQ_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  pop rax" << std::endl;
+                std::cout << "  mov rdi, rax" << std::endl;
+                std::cout << "  mov rsi, rbx" << std::endl;
+                std::cout << "  call cmp_eq" << std::endl; 
+                break;
+            }
+            case _NEQ_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  pop rax" << std::endl;
+                std::cout << "  mov rdi, rax" << std::endl;
+                std::cout << "  mov rsi, rbx" << std::endl;
+                std::cout << "  call cmp_neq" << std::endl; 
+                break;
+            }
+            case _LEQ_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  pop rax" << std::endl;
+                std::cout << "  mov rdi, rax" << std::endl;
+                std::cout << "  mov rsi, rbx" << std::endl;
+                std::cout << "  call cmp_leq" << std::endl; 
+                break;
+            }
+            case _GEQ_ : {
+                print_func_asm(bin_op_node->left);
+                std::cout << "  push rax" << std::endl;
+                print_func_asm(bin_op_node->right);
+                std::cout << "  push rax" << std::endl;
+                std::cout << "  pop rbx" << std::endl;
+                std::cout << "  pop rax" << std::endl;
+                std::cout << "  mov rdi, rax" << std::endl;
+                std::cout << "  mov rsi, rbx" << std::endl;
+                std::cout << "  call cmp_geq" << std::endl; 
+                break;
+            }
+            case _NEG_ : {
+                print_func_asm(bin_op_node->right);
+                std::cout << "  mov r8, -1" << std::endl;
+                std::cout << "  mul r8" << std::endl;
+                break;
+            }
+            default: break;
+        }
+    }
+    else if (main_node) {
+        std::cout << this->func_name + ":\n" << std::endl;
+        std::cout << "  push rbp" << std::endl;
+        std::cout << "  mov rbp, rsp" << std::endl;
+        
+        int scans = 0;
+        num_of_scans(main_node, &scans);
+        scans *= 16;
+        int vars = 0;
+        for (auto it : this->func_state.vars) {
+            if (vars < it.second) { vars = it.second; }
+        }
+        for (auto it : this->func_state.arrs) {
+            if (vars < it.second.first) { vars = it.second.first; }
+        }
+        vars *= 2;
+        
+        if (scans >= vars) {
+            std::cout << "  sub rsp, " << scans << std::endl;
+        }
+        else {
+            std::cout << "  sub rsp, " << get_size(vars) << std::endl;
+        }
+
+        print_func_asm(main_node->next);
+        std::cout << "  leave" << std::endl;
+        std::cout << "  ret\n\n" << std::endl;
+    }
+    else if (assign_node) {
+        print_func_asm(assign_node->assign_val);
+        std::cout << "  mov QWORD PTR [rbp-" << 2 * this->func_state.vars[assign_node->var_name] << "], rax" << std::endl;
+        print_func_asm(assign_node->next);
+    }
+    /*else if (arrElemAssign_node) {
+        print_func_asm(arrElemAssign_node->elem_index);
+        
+        auto it = this->func_state.arrs.find(arrElemAssign_node->arr_name);
+        if (it != this->func_state.arrs.end()) { 
+            ArrayType ty = it->second.second;
+            if (ty == ArrayType::_STAT_) {
+                std::cout << "  mov r8, -8" << std::endl;
+                std::cout << "  mul r8" << std::endl;
+                std::cout << "  sub rax, " << 2*this->func_state.arrs[arrElemAssign_node->arr_name].first << std::endl;
+                std::cout << "  mov r9, rax" << std::endl;
+                print_func_asm(arrElemAssign_node->assign_val);
+                std::cout << "  mov QWORD PTR [rbp+r9], rax" << std::endl;
+            }
+            else if (ty == ArrayType::_DYN_) {
+                std::cout << "  mov r8, 8" << std::endl;
+                std::cout << "  mul r8" << std::endl;
+                std::cout << "  mov rdx, rax" << std::endl;
+                std::cout << "  mov rax, QWORD PTR [rbp-" << 2*this->func_state.arrs[arrElemAssign_node->arr_name].first << "]" << std::endl;
+                std::cout << "  add rax, rdx" << std::endl;
+                std::cout << "  mov r9, rax" << std::endl;
+                print_func_asm(arrElemAssign_node->assign_val);
+                std::cout << "  mov QWORD PTR [r9], rax" << std::endl;
+                
+            }
+            else { return; }
+        }
+        
+        print_func_asm(arrElemAssign_node->next);
+    }*/
+    else if (print_node) {
+        print_func_asm(print_node->print_val);
+        std::cout << "  lea rdi, print_format" << std::endl;
+        std::cout << "  mov rsi, rax" << std::endl;
+        std::cout << "  xor rax, rax" << std::endl;
+        std::cout << "  call printf" << std::endl;
+        print_func_asm(print_node->next);
+    }
+    else if (scan_node) {
+        std::cout << "  lea rdi, scan_format" << std::endl;
+        std::cout << "  lea rsi, [rbp-" << 2 * this->func_state.vars[scan_node->var_name] << "]" << std::endl;
+        std::cout << "  xor rax, rax" << std::endl;
+        std::cout << "  call scanf" << std::endl;
+        print_func_asm(scan_node->next);
+    }
+    /*else if (statArrDecl_node) {
+        for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
+            print_func_asm(statArrDecl_node->arr_vals[i]);
+            
+            std::string elem_name = statArrDecl_node->arr_name + std::to_string(i);
+            std::cout << "  mov QWORD PTR [rbp-" << 2 * this->func_state.vars[elem_name] << "], rax" << std::endl;
+        }
+        
+        print_func_asm(statArrDecl_node->next);
+    }
+    else if (dynArrDecl_node) {
+        int num = num_vars(dynArrDecl_node->arr_size, 0);
+        if (num == 0) {
+            int res = num_expr_eval(dynArrDecl_node->arr_size, 0);
+            std::cout << "  mov rax, " << std::to_string(res) << std::endl;
+        }
+        else {
+            print_func_asm(dynArrDecl_node->arr_size);
+        }
+        
+        std::cout << "  mov rbx, rax" << std::endl;
+        std::cout << "  sal rax, 3" << std::endl;
+        std::cout << "  mov r12, 0" << std::endl;
+        std::cout << "  mov rdi, rax" << std::endl;
+        std::cout << "  call malloc" << std::endl;
+        std::cout << "  mov QWORD PTR [rbp-" << 2*this->func_state.arrs[dynArrDecl_node->arr_name].first << "], rax" << std::endl; 
+        std::cout << "arr_loop" << dynArrDecl_node->arrayDecl_loop << ":" << std::endl;
+        std::cout << "  cmp r12, rbx" << std::endl;
+        std::cout << "  je arr_next" << dynArrDecl_node->arrayDecl_loop << std::endl;
+        std::cout << "  mov rax, r12" << std::endl;
+        std::cout << "  mov r8, 8" << std::endl;
+        std::cout << "  mul r8" << std::endl;
+        std::cout << "  mov rdx, rax" << std::endl;
+        std::cout << "  mov rax, QWORD PTR [rbp-" << 2*this->func_state.arrs[dynArrDecl_node->arr_name].first << "]" << std::endl;
+        std::cout << "  add rax, rdx" << std::endl;
+        std::cout << "  mov rdi, rax" << std::endl;
+        print_func_asm(dynArrDecl_node->arr_val);
+        std::cout << "  mov QWORD PTR [rdi], rax" << std::endl;
+        std::cout << "  inc r12" << std::endl;
+        std::cout << "  jmp arr_loop" << dynArrDecl_node->arrayDecl_loop << std::endl;
+        std::cout << "arr_next" << dynArrDecl_node->arrayDecl_loop << ":" << std::endl;
+            
+        print_func_asm(dynArrDecl_node->next);
+    }*/
+    else if (if_else_node) {
+        auto* next_if_else = dynamic_cast<IfElseNode*>(if_else_node->next);
+        auto* next_while = dynamic_cast<WhileNode*>(if_else_node->next);
+        int n = if_else_node->conds.size();
+        
+        if (n == 1) {
+            std::cout << "if" << if_else_node->if_num << ":" << std::endl;
+            print_func_asm(if_else_node->conds[0].first);
+            std::cout << "  cmp rax, 1" << std::endl;
+            std::cout << "  je cond" << if_else_node->cond_num[0] << std::endl;
+            
+            if (next_if_else) {
+                std::cout << "  jmp if" << next_if_else->if_num << std::endl;
+            }
+            else if (next_while) {
+                std::cout << "  jmp loop" << next_while->while_num << std::endl;
+            }
+            else {
+                std::cout << "  jmp main" << if_else_node->main_num << std::endl;
+            }
+            
+            std::cout << "cond" << if_else_node->cond_num[0] << ":" << std::endl;
+            print_func_asm(if_else_node->conds[0].second);
+                
+            if (next_if_else) {
+                std::cout << "  jmp if" << next_if_else->if_num << std::endl; 
+            }
+            else if (next_while) {
+                std::cout << "  jmp loop" << next_while->while_num << std::endl;
+            }
+            else {
+                std::cout << "  jmp main" << if_else_node->main_num << std::endl;
+            }
+            
+            if (!(next_if_else || next_while)) {
+                std::cout << "main" << if_else_node->main_num << ":" << std::endl;
+            }
+            
+            print_func_asm(if_else_node->next);
+        }
+        else {
+            std::cout << "if" << if_else_node->if_num << ":" << std::endl;
+            int i;
+            for (i = 1; i < n; ++i) {
+                print_func_asm(if_else_node->conds[i].first);
+                std::cout << "  cmp rax, 1" << std::endl;
+                std::cout << "  je cond" << if_else_node->cond_num[i-1] << std::endl;
+            }
+            std::cout << "  jmp cond" << if_else_node->cond_num[i-1] << std::endl;
+            
+            for (i = 1; i < n; ++i) {
+                std::cout << "cond" << if_else_node->cond_num[i-1] << ":" << std::endl;
+                print_func_asm(if_else_node->conds[i].second);
+                
+                if (next_if_else) {
+                    std::cout << "  jmp if" << next_if_else->if_num << std::endl; 
+                }
+                else if (next_while) {
+                    std::cout << "  jmp loop" << next_while->while_num << std::endl;
+                }
+                else {
+                    std::cout << "  jmp main" << if_else_node->main_num << std::endl;
+                }
+            }
+            std::cout << "cond" << if_else_node->cond_num[i-1] << ":" << std::endl;
+            print_func_asm(if_else_node->conds[0].second);
+                
+            if (next_if_else) {
+                std::cout << "  jmp if" << next_if_else->if_num << std::endl; 
+            }
+            else if (next_while) {
+                std::cout << "  jmp loop" << next_while->while_num << std::endl;
+            }
+            else {
+                std::cout << "  jmp main" << if_else_node->main_num << std::endl;
+                std::cout << "main" << if_else_node->main_num << ":" << std::endl;
+            }
+            print_func_asm(if_else_node->next);
+        }
+        
+    }
+    else if (while_node) {
+        auto* next_while = dynamic_cast<WhileNode*>(while_node->next);
+        auto* next_if_else = dynamic_cast<IfElseNode*>(while_node->next);
+        
+        std::cout << "loop" << while_node->while_num << ":" << std::endl;
+        print_func_asm(while_node->cond);
+        std::cout << "  cmp rax, 0" << std::endl;
+        if (next_while) {
+            std::cout << "  je loop" << next_while->while_num << std::endl;
+        }
+        else if (next_if_else) {
+            std::cout << "  je if" << next_if_else->if_num << std::endl;
+        }
+        else {
+            std::cout << "  je main" << while_node->main_num << std::endl;
+        }
+        print_func_asm(while_node->stmts);
+        std::cout << "  jmp loop" << while_node->while_num << std::endl;
+        
+        if (!(next_while || next_if_else)) {
+            std::cout << "main" << while_node->main_num << ":" << std::endl;
+        }
+        print_func_asm(while_node->next);
+    }
+    else if (return_node) {
+        print_func_asm(return_node->return_val);
+    }
+};
+
+FuncCall::FuncCall(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, ASTNode* _next) {
+    line_index = _line_index;
+    func_name = _func_name;
+    func_args = _func_args;
+    next = _next;
+};
+
+Result* traverse_tree(ASTNode* ptr, ProgState* state) {
+    auto* num_node = dynamic_cast<NumNode*>(ptr);
+    auto* var_node = dynamic_cast<VarNode*>(ptr);
+    auto* arrElem_node = dynamic_cast<ArrayElemNode*>(ptr);
+    auto* bin_op_node = dynamic_cast<BinaryNode*>(ptr);
+    auto* main_node = dynamic_cast<MainNode*>(ptr);
+    auto* assign_node = dynamic_cast<AssignNode*>(ptr);
+    auto* print_node = dynamic_cast<PrintNode*>(ptr);
+    auto* scan_node = dynamic_cast<ScanNode*>(ptr);
+    auto* statArrDecl_node = dynamic_cast<StatArrayDeclNode*>(ptr);
+    auto* dynArrDecl_node = dynamic_cast<DynArrayDeclNode*>(ptr);
+    auto* arrElemAssign_node = dynamic_cast<ArrayElemAssignNode*>(ptr);
+    auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
+    auto* while_node = dynamic_cast<WhileNode*>(ptr);
+    auto* funcDef_node = dynamic_cast<FuncDef*>(ptr);
+    auto* funcCall_node = dynamic_cast<FuncCall*>(ptr);
+    
+    if (num_node) { return new Result(ErrType::_OK_, -1, "") ; }
+    else if (var_node) { 
+        if (state->vars.find(var_node->var_name) == state->vars.end()) {
+            return new Result(ErrType::_ERR_VAR_, var_node->line_index, "Variable '" + var_node->var_name + "' not defined!");
+        }
+    }
+    else if (arrElem_node) {
+        if (state->arrs.find(arrElem_node->arr_name) == state->arrs.end()) {
+            std::string arr = arrElem_node->arr_name.substr(1, arrElem_node->arr_name.length()-2);
+            return new Result(ErrType::_ERR_ARR_, arrElem_node->line_index, "Unknown array '" + arr + "'!");
+        }
+        else {
+            Result* index = traverse_tree(arrElem_node->elem_index, state);
+        
+            if (index->err == ErrType::_ERR_VAR_ || index->err == ErrType::_ERR_FUNC_EXIST_) return index;
+        }
+    }
+    else if (bin_op_node) {
+        Result* lhs = traverse_tree(bin_op_node->left, state);
+        Result* rhs = traverse_tree(bin_op_node->right, state);
+        
+        if (lhs->err == ErrType::_ERR_VAR_ || lhs->err == ErrType::_ERR_ARR_ || lhs->err == ErrType::_ERR_FUNC_EXIST_) return lhs;
+        else if (rhs->err == ErrType::_ERR_VAR_ || rhs->err == ErrType::_ERR_ARR_ || rhs->err == ErrType::_ERR_FUNC_EXIST_) return rhs;
+    }
+    else if (main_node) {
+        Result* res = traverse_tree(main_node->next, state);
+        
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (assign_node) {
+        Result* val = traverse_tree(assign_node->assign_val, state);
+        
+        auto it = state->vars.find(assign_node->var_name);
+        if (it == state->vars.end()) {
+            state->vars[assign_node->var_name] = state->var_counter;
+            state->var_counter += VAR_STEP;
+        }
+        
+        Result* res = traverse_tree(assign_node->next, state);
+        
+        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (arrElemAssign_node) {
+        if (state->arrs.find(arrElemAssign_node->arr_name) == state->arrs.end()) {
+            std::string arr = arrElemAssign_node->arr_name.substr(1, arrElemAssign_node->arr_name.length()-2);
+            return new Result(ErrType::_ERR_ARR_, arrElemAssign_node->line_index, "Unknown array '" + arr + "'!");
+        }
+        else {
+            Result* index = traverse_tree(arrElemAssign_node->elem_index, state);
+            Result* val = traverse_tree(arrElemAssign_node->assign_val, state);
+            Result* res = traverse_tree(arrElemAssign_node->next, state);
+            
+            if (index->err == ErrType::_ERR_VAR_ || index->err == ErrType::_ERR_FUNC_EXIST_) return index;
+            else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
+            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        }
+    }
+    else if (print_node) {
+        Result* val = traverse_tree(print_node->print_val, state);
+        Result* res = traverse_tree(print_node->next, state);
+        
+        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_ARR_) return val;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (scan_node) {
+        if (state->vars.find(scan_node->var_name) == state->vars.end())
+            return new Result(ErrType::_ERR_VAR_, scan_node->line_index, "Variable '" + scan_node->var_name + "' not defined!");
+        
+        Result* res = traverse_tree(scan_node->next, state);
+        
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+    }
+    else if (statArrDecl_node) {
+        auto it = state->arrs.find(statArrDecl_node->arr_name);
+        if (it == state->arrs.end()) { state->arrs[statArrDecl_node->arr_name] = {state->var_counter, _STAT_}; }
+        
+        for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
+            Result* val = traverse_tree(statArrDecl_node->arr_vals[i], state);
+            
+            if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_ARR_) return val;
+            
+            std::string elem_name = statArrDecl_node->arr_name + std::to_string(i);
+            
+            state->vars[elem_name] = state->var_counter;
+            state->var_counter += VAR_STEP;
+        }
+        
+        Result* res = traverse_tree(statArrDecl_node->next, state);
+        
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (dynArrDecl_node) {
+        dynArrDecl_node->arrayDecl_loop = state->arrayDecl_loop;
+        state->arrayDecl_loop += 1;
+        
+        auto it = state->arrs.find(dynArrDecl_node->arr_name);
+        if (it == state->arrs.end()) { state->arrs[dynArrDecl_node->arr_name] = {state->var_counter, _DYN_};}
+        state->var_counter += VAR_STEP;
+        
+        Result* size = traverse_tree(dynArrDecl_node->arr_size, state);
+        Result* val = traverse_tree(dynArrDecl_node->arr_val, state);
+        Result* res = traverse_tree(dynArrDecl_node->next, state);
+        
+        if (size->err == ErrType::_ERR_VAR_) return size;
+        else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (if_else_node) {
+        int n = if_else_node->conds.size();
+        
+        if (n == 1) {
+            if_else_node->if_num = state->if_counter;
+            if_else_node->main_num = state->main_counter;
+            if_else_node->cond_num.push_back(state->cond_counter);
+            
+            state->if_counter += 1;
+            state->main_counter += 1;
+            state->cond_counter += 1;
+            
+            Result* cond = traverse_tree(if_else_node->conds[0].first, state);
+            Result* stmts = traverse_tree(if_else_node->conds[0].second, state);
+            Result* res = traverse_tree(if_else_node->next, state);
+            
+            if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
+            else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+        }
+        else {
+            if_else_node->if_num = state->if_counter;
+            if_else_node->main_num = state->main_counter;
+            for (int i = 1; i < n; ++i) {
+                if_else_node->cond_num.push_back(state->cond_counter + i - 1);
+                Result* cond = traverse_tree(if_else_node->conds[i].first, state);
+                
+                if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
+            }
+            if_else_node->cond_num.push_back(state->cond_counter + n - 1);
+            state->cond_counter += n;
+            state->main_counter += n;
+            
+            for (int i = 1; i < n; ++i) {
+                state->if_counter += 1;
+                Result* stmts = traverse_tree(if_else_node->conds[i].second, state);
+                
+                if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+            }
+            Result* stmts = traverse_tree(if_else_node->conds[0].second, state);
+            Result* res = traverse_tree(if_else_node->next, state);
+            
+            if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+        }
+    }
+    else if (while_node) {
+        while_node->while_num = state->loop_counter;
+        while_node->main_num = state->main_counter;
+        state->loop_counter += 1;    
+        state->main_counter += 1;
+        
+        Result* cond = traverse_tree(while_node->cond, state);
+        Result* stmts = traverse_tree(while_node->stmts, state);
+        Result* res = traverse_tree(while_node->next, state);
+        
+        if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
+        else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+    }
+    else if (funcDef_node) {
+        //state->funcs.push_back(funcDef_node->func_name);
+        state->funcs[funcDef_node->func_name] = funcDef_node->func_stmts;
+        Result* func_res = funcDef_node->traverse_func_tree(funcDef_node->func_stmts);
+        
+        if (func_res->err == ErrType::_ERR_VAR_ || func_res->err == ErrType::_ERR_ARR_ || func_res->err == ErrType::_ERR_FUNC_EXIST_) return func_res;
+        
+        Result* res = traverse_tree(funcDef_node->next, state);
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    else if (funcCall_node) {
+        auto name = state->funcs.find(funcCall_node->func_name);
+        if (name == state->funcs.end())
+            return new Result(ErrType::_ERR_FUNC_EXIST_, funcCall_node->line_index, "Function '" + funcCall_node->func_name + "' not defined!");
+        
+        for (auto it : funcCall_node->func_args) {
+            Result* tmp = traverse_tree(it, state);
+            if (tmp->err == ErrType::_ERR_VAR_ || tmp->err == ErrType::_ERR_ARR_ || tmp->err == ErrType::_ERR_FUNC_EXIST_) return tmp;
+        }
+        
+        Result* res = traverse_tree(funcCall_node->next, state);
+        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+    }
+    
+    return new Result(ErrType::_OK_, -1, "");
+};
 
 void print_asm(ASTNode* ptr, ProgState state) {
     auto* num_node = dynamic_cast<NumNode*>(ptr);
@@ -453,6 +1135,7 @@ void print_asm(ASTNode* ptr, ProgState state) {
     auto* arrElemAssign_node = dynamic_cast<ArrayElemAssignNode*>(ptr);
     auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
     auto* while_node = dynamic_cast<WhileNode*>(ptr);
+    auto* funcCall_node = dynamic_cast<FuncCall*>(ptr);
     
     if (num_node) {
         std::cout << "  mov rax, " << num_node->num << std::endl;
@@ -675,6 +1358,12 @@ void print_asm(ASTNode* ptr, ProgState state) {
         std::cout << "  scan_format: .asciz \"\%ld\"" << std::endl;
         
         std::cout << "\n.text\n" << std::endl;
+        
+        for (auto it : state.funcs) {
+            auto* jt = dynamic_cast<FuncDef*>(it.second);
+            if (jt) jt->print_func_asm(jt->func_stmts);
+        }
+        
         std::cout << ".global main" << std::endl;
         std::cout << "main:" << std::endl;
         std::cout << "  push rbp" << std::endl;
@@ -904,6 +1593,14 @@ void print_asm(ASTNode* ptr, ProgState state) {
             std::cout << "main" << while_node->main_num << ":" << std::endl;
         }
         print_asm(while_node->next, state);
+    }
+    else if (funcCall_node) {
+        std::vector<std::string> args = {"rdi", "rsi"};
+        for (int i = 0; i < (int)funcCall_node->func_args.size(); ++i) {
+            print_asm(funcCall_node->func_args[i], state);
+            std::cout << "  mov " + args[i] + ", rax" << std::endl;
+        }
+        std::cout << "  call " + funcCall_node->func_name << std::endl; 
     }
 };
 
