@@ -21,6 +21,7 @@ echo "[INFO] Parser successfully built"
 exp () {
     if [[ "$1" == *.exp ]]; then
         ./exp $1 > "${2}.s"
+        echo "[INFO] AST tree successfully created"
     else 
         echo "[ERROR] Wrong file extension; expected .exp at the end..."
     fi 

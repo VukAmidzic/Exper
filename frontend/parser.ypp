@@ -1,6 +1,5 @@
 %{
     #include "ast/ast.hpp"
-    #include "ast/tree.hpp"
     #include <iostream>
     #include <cstdlib>
     #include <string>
@@ -36,14 +35,7 @@
     }
     
     ASTNode* prog = nullptr;
-    static std::map<std::string, int> mp;
-    static std::map<std::string, std::pair<int, ArrayType>> arrs;
-    extern int var_counter;
-    int arrayDecl_loop = 0;
-    int main_counter = 0;
-    int loop_counter = 0;
-    int if_counter = 0;
-    int cond_counter = 0;
+    ProgState state;
 %}
 
 %union {
@@ -242,7 +234,7 @@ int main(int argc, char** argv) {
     
     yyparse();
     
-    Result* res = traverse_tree(prog, mp, arrs, &loop_counter, &if_counter, &cond_counter, &main_counter, &arrayDecl_loop);
+    Result* res = traverse_tree(prog, &state);
     if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) {
         std::cerr << "Error in " << argv[1] << ", line " << res->err_index << ":\n" << std::endl; 
 
@@ -253,7 +245,7 @@ int main(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
     
-    print_asm(prog, mp, arrs);
+    print_asm(prog, state);
     
     exit(EXIT_SUCCESS);
 }

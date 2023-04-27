@@ -1,9 +1,9 @@
 #include <string>
 #include <vector>
+#include <map>
 
 #ifndef AST_HPP
 #define AST_HPP
-
 
 enum Tag {
     _ADD_, _SUB_, _MUL_, _DIV_,
@@ -16,6 +16,17 @@ enum Tag {
 enum ArrayType { _STAT_, _DYN_ };
    
 enum ErrType { _OK_, _ERR_VAR_, _ERR_ARR_ };
+
+typedef struct ProgState {
+    std::map<std::string, int> vars;
+    std::map<std::string, std::pair<int, ArrayType>> arrs;
+    int var_counter = 4;
+    int arrayDecl_loop = 0;
+    int main_counter = 0;
+    int loop_counter = 0;
+    int if_counter = 0;
+    int cond_counter = 0;
+} ProgState;
 
 class Result {
 public:
@@ -187,5 +198,11 @@ public:
         ASTNode* _next
     );
 };
+
+Result* traverse_tree(ASTNode* ptr, ProgState* state);
+
+void print_asm(ASTNode* ptr, ProgState state);
+
+std::string get_err_line(int err_index, std::string filename);
 
 #endif
