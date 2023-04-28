@@ -1,0 +1,12 @@
+def fact(n) {
+    if (n = 1) {ret 1;}
+    else {
+        res := fact(n-1) * n;
+        ret res;
+    };
+};
+
+n := 0;
+scan(n);
+
+print(fact(n));

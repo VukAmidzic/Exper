@@ -421,6 +421,7 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
     auto* print_node = dynamic_cast<PrintNode*>(ptr);
     auto* if_else_node = dynamic_cast<IfElseNode*>(ptr);
     auto* while_node = dynamic_cast<WhileNode*>(ptr);
+    auto* funcCall_node = dynamic_cast<FuncCall*>(ptr);
     auto* return_node = dynamic_cast<ReturnNode*>(ptr);
     
     if (num_node) {
@@ -442,6 +443,16 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
         if (this->func_state.vars.find(var_node->var_name) != this->func_state.vars.end()) {
             std::cout << "  mov rax, QWORD PTR [rbp-" << 2*this->func_state.vars[var_node->var_name] << "]" << std::endl;
         }
+    }
+    else if (funcCall_node) {
+        std::vector<std::string> asm_args = {"rdi", "rsi"};
+        std::cout << "  push rdi" << std::endl;
+        for (int i = 0; i < (int)funcCall_node->func_args.size(); ++i) {
+            print_func_asm(funcCall_node->func_args[i]);
+            std::cout << "  mov " << asm_args[i] << ", rax" << std::endl;
+        }
+        std::cout << "  call " << funcCall_node->func_name << std::endl;
+        std::cout << "  pop rdi" << std::endl;
     }
     else if (bin_op_node) {
         switch (bin_op_node->tag) {
