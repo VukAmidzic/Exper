@@ -27,6 +27,7 @@ This is a personal hobby-made language written in C++ together with Flex/Bison t
 - arithmetic, logical and bitwise operations
 - loop and if-else statements (individual or nested)
 - fixed-size arrays
+- defining and calling functions
 
 ## Running the compiler
 
