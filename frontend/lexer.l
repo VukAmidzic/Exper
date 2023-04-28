@@ -49,6 +49,7 @@
 ":=" { return ASSIGN; }
 ";" { return SEMIC; }
 "," { return COMMA; }
+"::" { return FUNC_ASSIGN; }
 
 "(" { return LP; }
 ")" { return RP; }

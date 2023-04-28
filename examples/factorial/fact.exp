@@ -1,4 +1,4 @@
-def fact(n) {
+def fact(n) :: {
     if (n = 1) {ret 1;}
     else {
         res := fact(n-1) * n;

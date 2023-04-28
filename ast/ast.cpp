@@ -295,10 +295,7 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr) {
         for (int i = 0; i < (int)this->func_args.size(); ++i) {
             auto* it = dynamic_cast<VarNode*>(this->func_args[i]);
             if (it) { 
-                if (it->var_name == var_node->var_name) { 
-                    std::cout << "#FOUND ARG " << var_node->var_name << " IN ARGS" << std::endl;
-                    found_arg = true; 
-                } 
+                if (it->var_name == var_node->var_name) found_arg = true; 
             }
         }
         if (found_arg) { 
@@ -430,7 +427,7 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
     else if (var_node) {
         bool found_arg = false;
         int index = 0;
-        for (int i = 0; i < (int)this->func_args.size(); ++i) {
+        for (int i = (int)this->func_args.size() - 1; i >= 0; --i) {
             auto* it = dynamic_cast<VarNode*>(this->func_args[i]);
             if (it) { 
                 if (it->var_name == var_node->var_name) { found_arg = true; index = i; } 
@@ -957,10 +954,10 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
     }
     else if (funcDef_node) {
-        for (auto it : funcDef_node->func_args) {
+        /*for (auto it : funcDef_node->func_args) {
             auto* jt = dynamic_cast<VarNode*>(it);
             if (jt) { std::cout << "#" << funcDef_node->func_name << "->" << jt->var_name << std::endl; }
-        }
+        }*/
         
         state->funcs[funcDef_node->func_name] = funcDef_node;
         Result* func_res = funcDef_node->traverse_func_tree(funcDef_node->func_stmts);
@@ -1462,7 +1459,7 @@ void print_asm(ASTNode* ptr, ProgState state) {
     }
     else if (funcCall_node) {
         std::vector<std::string> args = {"rdi", "rsi"};
-        for (int i = 0; i < (int)funcCall_node->func_args.size(); ++i) {
+        for (int i = (int)funcCall_node->func_args.size() - 1; i >= 0; --i) {
             print_asm(funcCall_node->func_args[i], state);
             std::cout << "  mov " + args[i] + ", rax" << std::endl;
         }

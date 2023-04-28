@@ -1,6 +1,3 @@
-#fact->n
-#FOUND ARG n IN ARGS
-#FOUND ARG n IN ARGS
 #fact has 1 args
 #NUMBER OF FUNCS: 1
 .intel_syntax noprefix
