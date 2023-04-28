@@ -90,6 +90,13 @@ public:
     );
 };
 
+class FuncCall : public ASTNode {
+public:
+    std::string func_name;
+    std::vector<ASTNode*> func_args;
+    FuncCall(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args);
+};
+
 class StatementNode : public ASTNode {
 public: 
     virtual ~StatementNode() = default;
@@ -225,18 +232,10 @@ public:
     ASTNode* func_stmts;
     FuncDef(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, FuncState _func_state, 
         ASTNode* _func_stmts, ASTNode* _next);
-    
     Result* traverse_func_tree(ASTNode* ptr);
     void print_func_asm(ASTNode* ptr);
 private:
     std::vector<std::string> asm_args = {"rdi", "rsi"};
-};
-
-class FuncCall : public StatementNode {
-public:
-    std::string func_name;
-    std::vector<ASTNode*> func_args;
-    FuncCall(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, ASTNode* _next);
 };
 
 Result* traverse_tree(ASTNode* ptr, ProgState* state);

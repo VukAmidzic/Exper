@@ -50,7 +50,7 @@
 %token<id> ID
 
 %type<node> expr E T F Q S P N
-%type<node> program stmts stmt print scan assign if_else while_stmt return func_def func_call
+%type<node> program stmts stmt print scan assign if_else while_stmt return func_def 
 %type<els> else_stmt
 %type<elems> elems
 
@@ -62,7 +62,7 @@
 %token GREAT LESS EQ NEQ GEQ LEQ 
 %token AND OR NOT 
 %token SEMIC COMMA ASSIGN PRINT SCAN 
-%token RET DEF CALL
+%token RET DEF 
 %token IF ELSE WHILE
 
 %start program
@@ -93,27 +93,15 @@ stmt    : assign SEMIC { $$ = $1; }
         | if_else SEMIC { $$ = $1; }
         | while_stmt SEMIC { $$ = $1; }
         | return SEMIC { $$ = $1; }
-        | func_def SEMIC {$$ = $1; }
-        | func_call SEMIC {$$ = $1; };
-
-//FuncDef(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, FuncState _func_state, 
-        //ASTNode* _func_stmts, ASTNode* _next);
+        | func_def SEMIC {$$ = $1; };
+        
 func_def    : DEF ID LP elems RP LCP stmts RCP {
                 FuncState state;
-                $$ = new FuncDef(line_index, *$2, *$4, state, $7, nullptr);
                 MainNode* tmp = new MainNode(line_index, nullptr);
+                tmp->next = $7;
                 
-                if (FuncDef* it = dynamic_cast<FuncDef*>($$)) {
-                    tmp->next = it->func_stmts;
-                    it->func_stmts = tmp;
-                    $$ = it;
-                }
+                $$ = new FuncDef(line_index, *$2, *$4, state, tmp, nullptr);
             };        
-
-//FuncCall(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, ASTNode* _next);
-func_call   : CALL ID LP elems RP {
-                $$ = new FuncCall(line_index, *$2, *$4, nullptr);
-            };            
 
 return      : RET expr {
                 $$ = new ReturnNode(line_index, $2, nullptr);
@@ -248,6 +236,9 @@ N   : LP E RP { $$ = $2; }
         arr_name = arr_name.append(*$1) + "_";
         $$ = new ArrayElemNode(line_index, arr_name, $3);
         delete $1;
+    }
+    | ID LP elems RP {
+        $$ = new FuncCall(line_index, *$1, *$3);
     };
 %%
 

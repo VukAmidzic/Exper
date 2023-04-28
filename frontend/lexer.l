@@ -22,7 +22,6 @@
 "while" { return WHILE; }
 "ret" { return RET; }
 "def" { return DEF; }
-"call" { return CALL; }
 
 
 [a-zA-Z][a-zA-Z_0-9]* {
