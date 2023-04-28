@@ -290,10 +290,22 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr) {
     auto* return_node = dynamic_cast<ReturnNode*>(ptr);
     
     if (num_node) { return new Result(ErrType::_OK_, -1, "") ; }
-    else if (var_node) { 
-        if (this->func_state.vars.find(var_node->var_name) == this->func_state.vars.end() && 
-            std::find(this->func_args.begin(), this->func_args.end(), var_node) == this->func_args.end()
-        ) {
+    else if (var_node) {
+        bool found_arg = false;
+        for (int i = 0; i < (int)this->func_args.size(); ++i) {
+            auto* it = dynamic_cast<VarNode*>(this->func_args[i]);
+            if (it) { 
+                if (it->var_name == var_node->var_name) { 
+                    std::cout << "#FOUND ARG " << var_node->var_name << " IN ARGS" << std::endl;
+                    found_arg = true; 
+                } 
+            }
+        }
+        if (found_arg) { 
+            return new Result(ErrType::_OK_, -1, ""); 
+        }
+        
+        if (this->func_state.vars.find(var_node->var_name) == this->func_state.vars.end()) {
             return new Result(ErrType::_ERR_VAR_, var_node->line_index, "Variable '" + var_node->var_name + "' not defined!");
         }
     }
@@ -415,12 +427,20 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
         std::cout << "  mov rax, " << num_node->num << std::endl;
     }
     else if (var_node) {
-        auto it = std::find(this->func_args.begin(), this->func_args.end(), var_node);
-        if (it == this->func_args.end()) {
-            std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * this->func_state.vars[var_node->var_name] << "]" << std::endl;
+        bool found_arg = false;
+        int index = 0;
+        for (int i = 0; i < (int)this->func_args.size(); ++i) {
+            auto* it = dynamic_cast<VarNode*>(this->func_args[i]);
+            if (it) { 
+                if (it->var_name == var_node->var_name) { found_arg = true; index = i; } 
+            }
         }
-        else {
-            std::cout << "  mov rax, " + asm_args[std::distance(this->func_args.begin(), it)] << std::endl;
+        if (found_arg) { 
+            std::cout << "  mov rax, " << asm_args[index] << std::endl;
+        }
+        
+        if (this->func_state.vars.find(var_node->var_name) != this->func_state.vars.end()) {
+            std::cout << "  mov rax, QWORD PTR [rbp-" << 2*this->func_state.vars[var_node->var_name] << "]" << std::endl;
         }
     }
     else if (bin_op_node) {
@@ -615,7 +635,7 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
         std::cout << "  sub rsp," << 8*this->func_state.vars.size() << std::endl; 
         print_func_asm(main_node->next);
         std::cout << "  leave" << std::endl;
-        std::cout << "  ret\n\n" << std::endl;
+        std::cout << "  ret\n" << std::endl;
     }
     else if (assign_node) {
         print_func_asm(assign_node->assign_val);
@@ -926,8 +946,15 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
     }
     else if (funcDef_node) {
+        for (auto it : funcDef_node->func_args) {
+            auto* jt = dynamic_cast<VarNode*>(it);
+            if (jt) { std::cout << "#" << funcDef_node->func_name << "->" << jt->var_name << std::endl; }
+        }
+        
         state->funcs[funcDef_node->func_name] = funcDef_node;
         Result* func_res = funcDef_node->traverse_func_tree(funcDef_node->func_stmts);
+        
+        std::cout << "#" << funcDef_node->func_name << " has " << funcDef_node->func_args.size() << " args" << std::endl;
         
         if (func_res->err == ErrType::_ERR_VAR_ || func_res->err == ErrType::_ERR_ARR_ || func_res->err == ErrType::_ERR_FUNC_EXIST_) return func_res;
         
@@ -1218,7 +1245,7 @@ void print_asm(ASTNode* ptr, ProgState state) {
 
         print_asm(main_node->next, state);
         std::cout << "  leave" << std::endl;
-        std::cout << "  ret\n\n" << std::endl;
+        std::cout << "  ret\n" << std::endl;
     }
     else if (assign_node) {
         print_asm(assign_node->assign_val, state);
