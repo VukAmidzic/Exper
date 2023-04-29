@@ -443,13 +443,26 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
     }
     else if (funcCall_node) {
         std::vector<std::string> asm_args = {"rdi", "rsi"};
-        std::cout << "  push rdi" << std::endl;
-        for (int i = 0; i < (int)funcCall_node->func_args.size(); ++i) {
+        std::vector<int> call_registers;
+        int n = (int)funcCall_node->func_args.size();
+        for (int i = n - 1; i >= 0; --i) {
             print_func_asm(funcCall_node->func_args[i]);
-            std::cout << "  mov " << asm_args[i] << ", rax" << std::endl;
+            
+            auto* it = dynamic_cast<FuncCall*>(funcCall_node->func_args[i]);
+            
+            if (it) {
+                call_registers.push_back(i);
+                std::cout << "  push rax" << std::endl;
+            }
+            else {
+                std::cout << "  mov " << asm_args[i] << ", rax" << std::endl;
+            }
         }
-        std::cout << "  call " << funcCall_node->func_name << std::endl;
-        std::cout << "  pop rdi" << std::endl;
+        int r = (int)call_registers.size();
+        for (int i = 0; i < r; ++i) {
+            std::cout << "  pop " << asm_args[call_registers[i]] << std::endl;
+        }
+        std::cout << "  call " + funcCall_node->func_name << std::endl;  
     }
     else if (bin_op_node) {
         switch (bin_op_node->tag) {
@@ -1030,6 +1043,29 @@ void print_asm(ASTNode* ptr, ProgState state) {
             }
         }
     }
+    else if (funcCall_node) {
+        std::vector<std::string> asm_args = {"rdi", "rsi"};
+        std::vector<int> call_registers;
+        int n = (int)funcCall_node->func_args.size();
+        for (int i = n - 1; i >= 0; --i) {
+            print_asm(funcCall_node->func_args[i], state);
+            
+            auto* it = dynamic_cast<FuncCall*>(funcCall_node->func_args[i]);
+            
+            if (it) {
+                call_registers.push_back(i);
+                std::cout << "  push rax" << std::endl;
+            }
+            else {
+                std::cout << "  mov " << asm_args[i] << ", rax" << std::endl;
+            }
+        }
+        int r = (int)call_registers.size();
+        for (int i = 0; i < r; ++i) {
+            std::cout << "  pop " << asm_args[call_registers[i]] << std::endl;
+        }
+        std::cout << "  call " + funcCall_node->func_name << std::endl;  
+    }
     else if (bin_op_node) {
         switch (bin_op_node->tag) {
             case _ADD_ : {
@@ -1456,14 +1492,6 @@ void print_asm(ASTNode* ptr, ProgState state) {
     }
     else if (funcDef_node) {
         print_asm(funcDef_node->next, state);
-    }
-    else if (funcCall_node) {
-        std::vector<std::string> args = {"rdi", "rsi"};
-        for (int i = (int)funcCall_node->func_args.size() - 1; i >= 0; --i) {
-            print_asm(funcCall_node->func_args[i], state);
-            std::cout << "  mov " + args[i] + ", rax" << std::endl;
-        }
-        std::cout << "  call " + funcCall_node->func_name << std::endl; 
     }
 };
 

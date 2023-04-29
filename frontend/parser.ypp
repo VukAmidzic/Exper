@@ -99,7 +99,6 @@ func_def    : DEF ID LP elems RP FUNC_ASSIGN LCP stmts RCP {
                 FuncState state;
                 MainNode* tmp = new MainNode(line_index, nullptr);
                 std::vector<ASTNode*> func_args = *$4;
-                std::reverse(func_args.begin(), func_args.end());
                 tmp->next = $8;
                 
                 $$ = new FuncDef(line_index, *$2, func_args, state, tmp, nullptr);
