@@ -677,76 +677,76 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
         int n = if_else_node->conds.size();
         
         if (n == 1) {
-            std::cout << "if" << if_else_node->if_num << ":" << std::endl;
+            std::cout << this->func_name << "_if" << if_else_node->if_num << ":" << std::endl;
             print_func_asm(if_else_node->conds[0].first);
             std::cout << "  cmp rax, 1" << std::endl;
-            std::cout << "  je cond" << if_else_node->cond_num[0] << std::endl;
+            std::cout << "  je " << this->func_name << "_cond" << if_else_node->cond_num[0] << std::endl;
             
             if (next_if_else) {
-                std::cout << "  jmp if" << next_if_else->if_num << std::endl;
+                std::cout << "  jmp " << this->func_name << "_if" << next_if_else->if_num << std::endl;
             }
             else if (next_while) {
-                std::cout << "  jmp loop" << next_while->while_num << std::endl;
+                std::cout << "  jmp " << this->func_name << "_loop" << next_while->while_num << std::endl;
             }
             else {
-                std::cout << "  jmp main" << if_else_node->main_num << std::endl;
+                std::cout << "  jmp " << this->func_name << "_main" << if_else_node->main_num << std::endl;
             }
             
-            std::cout << "cond" << if_else_node->cond_num[0] << ":" << std::endl;
+            std::cout << this->func_name << "_cond" << if_else_node->cond_num[0] << ":" << std::endl;
             print_func_asm(if_else_node->conds[0].second);
                 
             if (next_if_else) {
-                std::cout << "  jmp if" << next_if_else->if_num << std::endl; 
+                std::cout << "  jmp " << this->func_name << "_if" << next_if_else->if_num << std::endl; 
             }
             else if (next_while) {
-                std::cout << "  jmp loop" << next_while->while_num << std::endl;
+                std::cout << "  jmp " << this->func_name << "_loop" << next_while->while_num << std::endl;
             }
             else {
-                std::cout << "  jmp main" << if_else_node->main_num << std::endl;
+                std::cout << "  jmp " << this->func_name << "_main" << if_else_node->main_num << std::endl;
             }
             
             if (!(next_if_else || next_while)) {
-                std::cout << "main" << if_else_node->main_num << ":" << std::endl;
+                std::cout << this->func_name << "_main" << if_else_node->main_num << ":" << std::endl;
             }
             
             print_func_asm(if_else_node->next);
         }
         else {
-            std::cout << "if" << if_else_node->if_num << ":" << std::endl;
+            std::cout << this->func_name << "_if" << if_else_node->if_num << ":" << std::endl;
             int i;
             for (i = 1; i < n; ++i) {
                 print_func_asm(if_else_node->conds[i].first);
                 std::cout << "  cmp rax, 1" << std::endl;
-                std::cout << "  je cond" << if_else_node->cond_num[i-1] << std::endl;
+                std::cout << "  je " << this->func_name << "_cond" << if_else_node->cond_num[i-1] << std::endl;
             }
-            std::cout << "  jmp cond" << if_else_node->cond_num[i-1] << std::endl;
+            std::cout << "  jmp " << this->func_name << "_cond" << if_else_node->cond_num[i-1] << std::endl;
             
             for (i = 1; i < n; ++i) {
-                std::cout << "cond" << if_else_node->cond_num[i-1] << ":" << std::endl;
+                std::cout << this->func_name << "_cond" << if_else_node->cond_num[i-1] << ":" << std::endl;
                 print_func_asm(if_else_node->conds[i].second);
                 
                 if (next_if_else) {
-                    std::cout << "  jmp if" << next_if_else->if_num << std::endl; 
+                    std::cout << "  jmp " << this->func_name << "_if" << next_if_else->if_num << std::endl; 
                 }
                 else if (next_while) {
-                    std::cout << "  jmp loop" << next_while->while_num << std::endl;
+                    std::cout << "  jmp " << this->func_name << "_loop" << next_while->while_num << std::endl;
                 }
                 else {
-                    std::cout << "  jmp main" << if_else_node->main_num << std::endl;
+                    std::cout << "  jmp " << this->func_name << "_main" << if_else_node->main_num << std::endl;
                 }
             }
-            std::cout << "cond" << if_else_node->cond_num[i-1] << ":" << std::endl;
+            std::cout << this->func_name << "_cond" << if_else_node->cond_num[i-1] << ":" << std::endl;
             print_func_asm(if_else_node->conds[0].second);
                 
             if (next_if_else) {
-                std::cout << "  jmp if" << next_if_else->if_num << std::endl; 
+                std::cout << "  jmp " << this->func_name << "_if" << next_if_else->if_num << std::endl; 
             }
             else if (next_while) {
-                std::cout << "  jmp loop" << next_while->while_num << std::endl;
+                std::cout << "  jmp " << this->func_name << "_loop" << next_while->while_num << std::endl;
             }
             else {
-                std::cout << "  jmp main" << if_else_node->main_num << std::endl;
-                std::cout << "main" << if_else_node->main_num << ":" << std::endl;
+                std::cout << "  jmp " << this->func_name << "_main" << if_else_node->main_num << std::endl;
+                std::cout << this->func_name << "_main" << if_else_node->main_num << ":" << std::endl;
             }
             print_func_asm(if_else_node->next);
         }
@@ -756,23 +756,23 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
         auto* next_while = dynamic_cast<WhileNode*>(while_node->next);
         auto* next_if_else = dynamic_cast<IfElseNode*>(while_node->next);
         
-        std::cout << "loop" << while_node->while_num << ":" << std::endl;
+        std::cout << this->func_name << "_loop" << while_node->while_num << ":" << std::endl;
         print_func_asm(while_node->cond);
         std::cout << "  cmp rax, 0" << std::endl;
         if (next_while) {
-            std::cout << "  je loop" << next_while->while_num << std::endl;
+            std::cout << "  je " << this->func_name << "_loop" << next_while->while_num << std::endl;
         }
         else if (next_if_else) {
-            std::cout << "  je if" << next_if_else->if_num << std::endl;
+            std::cout << "  je " << this->func_name << "_if" << next_if_else->if_num << std::endl;
         }
         else {
-            std::cout << "  je main" << while_node->main_num << std::endl;
+            std::cout << "  je " << this->func_name << "_main" << while_node->main_num << std::endl;
         }
         print_func_asm(while_node->stmts);
-        std::cout << "  jmp loop" << while_node->while_num << std::endl;
+        std::cout << "  jmp " << this->func_name << "_loop" << while_node->while_num << std::endl;
         
         if (!(next_while || next_if_else)) {
-            std::cout << "main" << while_node->main_num << ":" << std::endl;
+            std::cout << this->func_name << "_main" << while_node->main_num << ":" << std::endl;
         }
         print_func_asm(while_node->next);
     }
