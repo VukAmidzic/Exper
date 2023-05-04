@@ -10,6 +10,7 @@
     #include <utility>
     #include <algorithm>
     #include <regex>
+    #include <fstream>
     
     #define YYDEBUG 1
     #define YYERROR_VERBOSE 1
@@ -25,6 +26,24 @@
         std::regex e("^\\s+|\\s+$"); 
         return std::regex_replace(s, e, "");
     }
+    
+    std::string get_err_line(int err_index, std::string filename) {
+        std::ifstream file(filename);
+        std::string result;
+        
+        int i = 1;
+        
+        if (file.is_open()) {
+            std::string line;
+            
+            while (std::getline(file, line) && i++ < err_index);
+            
+            result = line;
+            file.close();
+        }
+        
+        return result;
+    };
     
     extern FILE *yyin;
     extern int yylex();
@@ -99,6 +118,7 @@ func_def    : DEF ID LP elems RP FUNC_ASSIGN LCP stmts RCP {
                 FuncState state;
                 MainNode* tmp = new MainNode(line_index, nullptr);
                 std::vector<ASTNode*> func_args = *$4;
+                std::reverse(func_args.begin(), func_args.end());
                 tmp->next = $8;
                 
                 $$ = new FuncDef(line_index, *$2, func_args, state, tmp, nullptr);
@@ -266,7 +286,6 @@ int main(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
     
-    std::cout << "#NUMBER OF FUNCS: " + std::to_string(state.funcs.size()) << std::endl; 
     print_asm(prog, state);
     
     exit(EXIT_SUCCESS);

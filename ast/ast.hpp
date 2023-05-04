@@ -68,12 +68,6 @@ class VarNode : public ASTNode {
 public:
     std::string var_name;
     VarNode(int _line_index, std::string _var_name);
-    friend bool operator== (VarNode& v1, VarNode& v2) {
-        return v1.var_name == v2.var_name;
-    };
-    friend bool operator!= (VarNode& v1, VarNode& v2) {
-        return v1.var_name != v2.var_name;
-    };
 };
 
 class ArrayElemNode : public ASTNode {
@@ -247,7 +241,5 @@ private:
 Result* traverse_tree(ASTNode* ptr, ProgState* state);
 
 void print_asm(ASTNode* ptr, ProgState state);
-
-std::string get_err_line(int err_index, std::string filename);
 
 #endif
