@@ -1,6 +1,6 @@
 #include <string>
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 #ifndef AST_HPP
 #define AST_HPP
@@ -24,9 +24,9 @@ enum ArrayType { _STAT_, _DYN_ };
 enum ErrType { _OK_, _ERR_VAR_, _ERR_ARR_, _ERR_FUNC_EXIST_ };
 
 typedef struct ProgState {
-    std::map<std::string, int> vars;
-    std::map<std::string, std::pair<int, ArrayType>> arrs;
-    std::map<std::string, ASTNode*> funcs;
+    std::unordered_map<std::string, int> vars;
+    std::unordered_map<std::string, std::pair<int, ArrayType>> arrs;
+    std::unordered_map<std::string, ASTNode*> funcs;
     int var_counter = 4;
     int arrayDecl_loop = 0;
     int main_counter = 0;
@@ -36,8 +36,8 @@ typedef struct ProgState {
 } ProgState;
 
 typedef struct FuncState {
-    std::map<std::string, int> vars;
-    std::map<std::string, std::pair<int, ArrayType>> arrs;
+    std::unordered_map<std::string, int> vars;
+    std::unordered_map<std::string, std::pair<int, ArrayType>> arrs;
     int var_counter = 4;
     int arrayDecl_loop = 0;
     int main_counter = 0;
@@ -232,7 +232,7 @@ public:
     ASTNode* func_stmts;
     FuncDef(int _line_index, std::string _func_name, std::vector<ASTNode*> _func_args, FuncState _func_state, 
         ASTNode* _func_stmts, ASTNode* _next);
-    Result* traverse_func_tree(ASTNode* ptr);
+    Result* traverse_func_tree(ASTNode* ptr, ProgState state);
     void print_func_asm(ASTNode* ptr);
 private:
     std::vector<std::string> asm_args = {"rdi", "rsi"};
