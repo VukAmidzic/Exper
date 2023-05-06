@@ -49,7 +49,7 @@
 ":=" { return ASSIGN; }
 ";" { return SEMIC; }
 "," { return COMMA; }
-"::" { return FUNC_ASSIGN; }
+"::" { return DCOL; }
 
 "(" { return LP; }
 ")" { return RP; }

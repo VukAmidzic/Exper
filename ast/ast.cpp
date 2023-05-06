@@ -168,9 +168,37 @@ int num_expr_eval(ASTNode* ptr, int res) {
     return res;
 }
 
+bool errResult(Result* tmp) {
+    switch (tmp->err) {
+        case ErrType::_ERR_VAR_: {
+            return true; 
+            break;
+        }
+        case ErrType::_ERR_ARR_: {
+            return true; 
+            break;
+        }
+        case ErrType::_ERR_FUNC_EXIST_: {
+            return true; 
+            break;
+        }
+        case ErrType::_ERR_CONST_: {
+            return true; 
+            break;
+        }
+        default: {
+            return false;
+            break;
+        }
+    };
+};
+
 NumNode::NumNode(int _line_index, int _num) { line_index = _line_index; num = _num; };
 
-VarNode::VarNode(int _line_index, std::string _var_name) { line_index = _line_index; var_name = _var_name; };
+VarNode::VarNode(int _line_index, std::string _var_name) { 
+    line_index = _line_index; 
+    var_name = _var_name; 
+};
 
 ArrayElemNode::ArrayElemNode(int _line_index, std::string _arr_name, ASTNode* _elem_index) {
     line_index = _line_index;
@@ -196,9 +224,11 @@ MainNode::MainNode(int _line_index, ASTNode* _next) {
     next = _next;
 };
 
-AssignNode::AssignNode(int _line_index, std::string _var_name, ASTNode* _assign_val, ASTNode* _next) {
+AssignNode::AssignNode(int _line_index, std::string _var_name, VarType _assign_ty, 
+    ASTNode* _assign_val, ASTNode* _next) {
     line_index = _line_index;
     var_name = _var_name;
+    assign_ty = _assign_ty;
     assign_val = _assign_val;
     next = _next;
 };
@@ -296,7 +326,8 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
         return new Result(ErrType::_OK_, -1, "") ; 
     }
     else if (var_node) {
-        if (this->func_state.vars.find(var_node->var_name) == this->func_state.vars.end()) {
+        if (this->func_state.consts.find(var_node->var_name) == this->func_state.consts.end() && 
+            this->func_state.vars.find(var_node->var_name) == this->func_state.vars.end()) {
             return new Result(ErrType::_ERR_VAR_, var_node->line_index, "Variable '" + var_node->var_name + "' not defined!");
         }
     }
@@ -307,35 +338,44 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
         }
         else {
             Result* index = traverse_func_tree(arrElem_node->elem_index, state);
-        
-            if (index->err == ErrType::_ERR_VAR_ || index->err == ErrType::_ERR_ARR_ || index->err == ErrType::_ERR_FUNC_EXIST_) return index;
+            if (errResult(index)) return index;
         }
     }
     else if (bin_op_node) {
         Result* lhs = traverse_func_tree(bin_op_node->left, state);
         Result* rhs = traverse_func_tree(bin_op_node->right, state);
         
-        if (lhs->err == ErrType::_ERR_VAR_ || lhs->err == ErrType::_ERR_ARR_ || lhs->err == ErrType::_ERR_FUNC_EXIST_) return lhs;
-        else if (rhs->err == ErrType::_ERR_VAR_ || rhs->err == ErrType::_ERR_ARR_ || rhs->err == ErrType::_ERR_FUNC_EXIST_) return rhs;
+        if (errResult(lhs)) return lhs;
+        else if (errResult(rhs)) return rhs;
     }
     else if (main_node) {
         Result* res = traverse_func_tree(main_node->next, state);
-        
-        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(res)) return res;
     }
     else if (assign_node) {
         Result* val = traverse_func_tree(assign_node->assign_val, state);
+        if (errResult(val)) return val;
         
-        auto it = this->func_state.vars.find(assign_node->var_name);
-        if (it == this->func_state.vars.end()) {
-            this->func_state.vars[assign_node->var_name] = this->func_state.var_counter;
-            this->func_state.var_counter += VAR_STEP;
+        if (assign_node->assign_ty == VarType::_CONST_) {
+            auto cst = this->func_state.consts.find(assign_node->var_name);
+            if (cst != this->func_state.consts.end()) {
+                return new Result(ErrType::_ERR_CONST_, assign_node->line_index, "Can't redefine const '" + assign_node->var_name + "'");
+            }
+            else {
+                this->func_state.consts[assign_node->var_name] = this->func_state.var_counter;
+                this->func_state.var_counter += VAR_STEP;
+            }
+        }
+        else if (assign_node->assign_ty == VarType::_VAR_) {
+            auto it = this->func_state.vars.find(assign_node->var_name);
+            if (it == this->func_state.vars.end()) {
+                this->func_state.vars[assign_node->var_name] = this->func_state.var_counter;
+                this->func_state.var_counter += VAR_STEP;
+            }
         }
         
         Result* res = traverse_func_tree(assign_node->next, state);
-        
-        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(res)) return res;
     }
     else if (arrElemAssign_node) {
         if (this->func_state.arrs.find(arrElemAssign_node->arr_name) == this->func_state.arrs.end()) {
@@ -347,9 +387,9 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
             Result* val = traverse_func_tree(arrElemAssign_node->assign_val, state);
             Result* res = traverse_func_tree(arrElemAssign_node->next, state);
             
-            if (index->err == ErrType::_ERR_VAR_ || index->err == ErrType::_ERR_FUNC_EXIST_) return index;
-            else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
-            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+            if (errResult(index)) return index;
+            else if (errResult(val)) return val;
+            else if (errResult(res)) return res;
         }
     }
     else if (statArrDecl_node) {
@@ -359,7 +399,7 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
         for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
             Result* val = traverse_func_tree(statArrDecl_node->arr_vals[i], state);
             
-            if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_ARR_) return val;
+            if (errResult(val)) return val;
             
             std::string elem_name = statArrDecl_node->arr_name + std::to_string(i);
             
@@ -369,7 +409,7 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
         
         Result* res = traverse_func_tree(statArrDecl_node->next, state);
         
-        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(res)) return res;
     }
     else if (dynArrDecl_node) {
         dynArrDecl_node->arrayDecl_loop = this->func_state.arrayDecl_loop;
@@ -383,9 +423,9 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
         Result* val = traverse_func_tree(dynArrDecl_node->arr_val, state);
         Result* res = traverse_func_tree(dynArrDecl_node->next, state);
         
-        if (size->err == ErrType::_ERR_VAR_ || size->err == ErrType::_ERR_ARR_ || size->err == ErrType::_ERR_FUNC_EXIST_) return size;
-        else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(size)) return size;
+        else if (errResult(val)) return val;
+        else if (errResult(res)) return res;
     }
     else if (if_else_node) {
         int n = if_else_node->conds.size();
@@ -403,9 +443,9 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
             Result* stmts = traverse_func_tree(if_else_node->conds[0].second, state);
             Result* res = traverse_func_tree(if_else_node->next, state);
             
-            if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
-            else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
-            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+            if (errResult(cond)) return cond;
+            else if (errResult(stmts)) return stmts;
+            else if (errResult(res)) return res;
         }
         else {
             if_else_node->if_num = this->func_state.if_counter;
@@ -414,7 +454,7 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
                 if_else_node->cond_num.push_back(this->func_state.cond_counter + i - 1);
                 Result* cond = traverse_func_tree(if_else_node->conds[i].first, state);
                 
-                if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
+                if (errResult(cond)) return cond;
             }
             if_else_node->cond_num.push_back(this->func_state.cond_counter + n - 1);
             this->func_state.cond_counter += n;
@@ -423,14 +463,14 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
             for (int i = 1; i < n; ++i) {
                 this->func_state.if_counter += 1;
                 Result* stmts = traverse_func_tree(if_else_node->conds[i].second, state);
-                
-                if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
+
+                if (errResult(stmts)) return stmts;
             }
             Result* stmts = traverse_func_tree(if_else_node->conds[0].second, state);
             Result* res = traverse_func_tree(if_else_node->next, state);
             
-            if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
-            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+            if (errResult(stmts)) return stmts;
+            else if (errResult(res)) return res;
         }
     }
     else if (while_node) {
@@ -443,15 +483,16 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
         Result* stmts = traverse_func_tree(while_node->stmts, state);
         Result* res = traverse_func_tree(while_node->next, state);
         
-        if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
-        else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+        if (errResult(cond)) return cond;
+        else if (errResult(stmts)) return stmts;
+        else if (errResult(res)) return res;
     }
     else if (return_node) {
         Result* val = traverse_func_tree(return_node->return_val, state);
         Result* res = traverse_func_tree(return_node->next, state);
-        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        
+        if (errResult(val)) return val;
+        else if (errResult(res)) return res;
     }
     else if (funcCall_node) {
         if (state.funcs.find(funcCall_node->func_name) == state.funcs.end()) {
@@ -460,7 +501,7 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
         
         for (auto it : funcCall_node->func_args) {
             Result* tmp = traverse_func_tree(it, state);
-            if (tmp->err == ErrType::_ERR_VAR_ || tmp->err == ErrType::_ERR_ARR_ || tmp->err == ErrType::_ERR_FUNC_EXIST_) return tmp;
+            if (errResult(tmp)) return tmp;
         }
     }
     
@@ -487,7 +528,13 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
         std::cout << "  mov rax, " << num_node->num << std::endl;
     }
     else if (var_node) {
-        std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * this->func_state.vars[var_node->var_name] << "]" << std::endl;
+        auto it = this->func_state.vars.find(var_node->var_name);
+        if (it != this->func_state.vars.end()) {
+            std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * this->func_state.vars[var_node->var_name] << "]" << std::endl;
+        }
+        else {
+            std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * this->func_state.consts[var_node->var_name] << "]" << std::endl;
+        }
     }
     else if (arrElem_node) {
         auto it = this->func_state.arrs.find(arrElem_node->arr_name);
@@ -510,7 +557,7 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
         }
     }
     else if (funcCall_node) {
-        std::vector<std::string> asm_args = {"rdi", "rsi"};
+        std::vector<std::string> asm_args = {"rdi", "rsi", "rdx", "rcx"};
         std::vector<int> call_registers;
         std::reverse(funcCall_node->func_args.begin(), funcCall_node->func_args.end());
         int n = (int)funcCall_node->func_args.size();
@@ -929,7 +976,8 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
     
     if (num_node) { return new Result(ErrType::_OK_, -1, ""); }
     else if (var_node) { 
-        if (state->vars.find(var_node->var_name) == state->vars.end()) {
+        if (state->consts.find(var_node->var_name) == state->consts.end() && 
+            state->vars.find(var_node->var_name) == state->vars.end()) {
             return new Result(ErrType::_ERR_VAR_, var_node->line_index, "Variable '" + var_node->var_name + "' not defined!");
         }
     }
@@ -940,35 +988,44 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         }
         else {
             Result* index = traverse_tree(arrElem_node->elem_index, state);
-        
-            if (index->err == ErrType::_ERR_VAR_ || index->err == ErrType::_ERR_ARR_ || index->err == ErrType::_ERR_FUNC_EXIST_) return index;
+            if (errResult(index)) return index;
         }
     }
     else if (bin_op_node) {
         Result* lhs = traverse_tree(bin_op_node->left, state);
         Result* rhs = traverse_tree(bin_op_node->right, state);
         
-        if (lhs->err == ErrType::_ERR_VAR_ || lhs->err == ErrType::_ERR_ARR_ || lhs->err == ErrType::_ERR_FUNC_EXIST_) return lhs;
-        else if (rhs->err == ErrType::_ERR_VAR_ || rhs->err == ErrType::_ERR_ARR_ || rhs->err == ErrType::_ERR_FUNC_EXIST_) return rhs;
+        if (errResult(lhs)) return lhs;
+        else if (errResult(rhs)) return rhs;
     }
     else if (main_node) {
         Result* res = traverse_tree(main_node->next, state);
-        
-        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(res)) return res;
     }
     else if (assign_node) {
         Result* val = traverse_tree(assign_node->assign_val, state);
+        if (errResult(val)) return val;
         
-        auto it = state->vars.find(assign_node->var_name);
-        if (it == state->vars.end()) {
-            state->vars[assign_node->var_name] = state->var_counter;
-            state->var_counter += VAR_STEP;
+        if (assign_node->assign_ty == VarType::_CONST_) {
+            auto cst = state->consts.find(assign_node->var_name);
+            if (cst != state->consts.end()) {
+                return new Result(ErrType::_ERR_CONST_, assign_node->line_index, "Can't redefine const '" + assign_node->var_name + "'");
+            }
+            else {
+                state->consts[assign_node->var_name] = state->var_counter;
+                state->var_counter += VAR_STEP;
+            }
+        }
+        else {
+            auto it = state->vars.find(assign_node->var_name);
+            if (it == state->vars.end()) {
+                state->vars[assign_node->var_name] = state->var_counter;
+                state->var_counter += VAR_STEP;
+            }
         }
         
         Result* res = traverse_tree(assign_node->next, state);
-        
-        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(res)) return res;
     }
     else if (arrElemAssign_node) {
         if (state->arrs.find(arrElemAssign_node->arr_name) == state->arrs.end()) {
@@ -980,25 +1037,24 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
             Result* val = traverse_tree(arrElemAssign_node->assign_val, state);
             Result* res = traverse_tree(arrElemAssign_node->next, state);
             
-            if (index->err == ErrType::_ERR_VAR_ || index->err == ErrType::_ERR_FUNC_EXIST_) return index;
-            else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
-            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+            if (errResult(index)) return index;
+            else if (errResult(val)) return val;
+            else if (errResult(res)) return res;
         }
     }
     else if (print_node) {
         Result* val = traverse_tree(print_node->print_val, state);
         Result* res = traverse_tree(print_node->next, state);
         
-        if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(val)) return val;
+        else if (errResult(res)) return res;
     }
     else if (scan_node) {
         if (state->vars.find(scan_node->var_name) == state->vars.end())
             return new Result(ErrType::_ERR_VAR_, scan_node->line_index, "Variable '" + scan_node->var_name + "' not defined!");
         
         Result* res = traverse_tree(scan_node->next, state);
-        
-        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(res)) return res;
     }
     else if (statArrDecl_node) {
         auto it = state->arrs.find(statArrDecl_node->arr_name);
@@ -1007,7 +1063,7 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
             Result* val = traverse_tree(statArrDecl_node->arr_vals[i], state);
             
-            if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_ARR_) return val;
+            if (errResult(val)) return val;
             
             std::string elem_name = statArrDecl_node->arr_name + std::to_string(i);
             
@@ -1017,7 +1073,7 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         
         Result* res = traverse_tree(statArrDecl_node->next, state);
         
-        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(res)) return res;
     }
     else if (dynArrDecl_node) {
         dynArrDecl_node->arrayDecl_loop = state->arrayDecl_loop;
@@ -1031,9 +1087,9 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         Result* val = traverse_tree(dynArrDecl_node->arr_val, state);
         Result* res = traverse_tree(dynArrDecl_node->next, state);
         
-        if (size->err == ErrType::_ERR_VAR_ || size->err == ErrType::_ERR_ARR_ || size->err == ErrType::_ERR_FUNC_EXIST_) return size;
-        else if (val->err == ErrType::_ERR_VAR_ || val->err == ErrType::_ERR_ARR_ || val->err == ErrType::_ERR_FUNC_EXIST_) return val;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(size)) return size;
+        else if (errResult(val)) return val;
+        else if (errResult(res)) return res;
     }
     else if (if_else_node) {
         int n = if_else_node->conds.size();
@@ -1051,9 +1107,9 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
             Result* stmts = traverse_tree(if_else_node->conds[0].second, state);
             Result* res = traverse_tree(if_else_node->next, state);
             
-            if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_ || cond->err == ErrType::_ERR_FUNC_EXIST_) return cond;
-            else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_ || stmts->err == ErrType::_ERR_FUNC_EXIST_) return stmts;
-            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+            if (errResult(cond)) return cond;
+            else if (errResult(stmts)) return stmts;
+            else if (errResult(res)) return res;
         }
         else {
             if_else_node->if_num = state->if_counter;
@@ -1062,7 +1118,7 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
                 if_else_node->cond_num.push_back(state->cond_counter + i - 1);
                 Result* cond = traverse_tree(if_else_node->conds[i].first, state);
                 
-                if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_ || cond->err == ErrType::_ERR_FUNC_EXIST_) return cond;
+                if (errResult(cond)) return cond;
             }
             if_else_node->cond_num.push_back(state->cond_counter + n - 1);
             state->cond_counter += n;
@@ -1072,13 +1128,13 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
                 state->if_counter += 1;
                 Result* stmts = traverse_tree(if_else_node->conds[i].second, state);
                 
-                if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_ || stmts->err == ErrType::_ERR_FUNC_EXIST_) return stmts;
+                if (errResult(stmts)) return stmts;
             }
             Result* stmts = traverse_tree(if_else_node->conds[0].second, state);
             Result* res = traverse_tree(if_else_node->next, state);
             
-            if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_ || stmts->err == ErrType::_ERR_FUNC_EXIST_) return stmts;
-            else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+            if (errResult(stmts)) return stmts;
+            else if (errResult(res)) return res;
         }
     }
     else if (while_node) {
@@ -1091,9 +1147,9 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         Result* stmts = traverse_tree(while_node->stmts, state);
         Result* res = traverse_tree(while_node->next, state);
         
-        if (cond->err == ErrType::_ERR_VAR_ || cond->err == ErrType::_ERR_ARR_) return cond;
-        else if (stmts->err == ErrType::_ERR_VAR_ || stmts->err == ErrType::_ERR_ARR_) return stmts;
-        else if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_) return res;
+        if (errResult(cond)) return cond;
+        else if (errResult(stmts)) return stmts;
+        else if (errResult(res)) return res;
     }
     else if (funcDef_node) {
         for (auto it : funcDef_node->func_args) {
@@ -1107,10 +1163,10 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         state->funcs[funcDef_node->func_name] = funcDef_node;
         Result* func_res = funcDef_node->traverse_func_tree(funcDef_node->func_stmts, *state);
         
-        if (func_res->err == ErrType::_ERR_VAR_ || func_res->err == ErrType::_ERR_ARR_ || func_res->err == ErrType::_ERR_FUNC_EXIST_) return func_res;
+        if (errResult(func_res)) return func_res;
         
         Result* res = traverse_tree(funcDef_node->next, state);
-        if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) return res;
+        if (errResult(res)) return res;
     }
     else if (funcCall_node) {
         auto name = state->funcs.find(funcCall_node->func_name);
@@ -1123,7 +1179,7 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         
         for (auto it : funcCall_node->func_args) {
             Result* tmp = traverse_tree(it, state);
-            if (tmp->err == ErrType::_ERR_VAR_ || tmp->err == ErrType::_ERR_ARR_ || tmp->err == ErrType::_ERR_FUNC_EXIST_) return tmp;
+            if (errResult(tmp)) return tmp;
         }
     }
     
@@ -1151,7 +1207,13 @@ void print_asm(ASTNode* ptr, ProgState state) {
         std::cout << "  mov rax, " << num_node->num << std::endl;
     }
     else if (var_node) {
-        std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * state.vars[var_node->var_name] << "]" << std::endl;
+        auto it = state.vars.find(var_node->var_name);
+        if (it != state.vars.end()) {
+            std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * state.vars[var_node->var_name] << "]" << std::endl;
+        }
+        else {
+            std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * state.consts[var_node->var_name] << "]" << std::endl;
+        }
     }
     else if (arrElem_node) {
         auto it = state.arrs.find(arrElem_node->arr_name);
@@ -1174,7 +1236,7 @@ void print_asm(ASTNode* ptr, ProgState state) {
         }
     }
     else if (funcCall_node) {
-        std::vector<std::string> asm_args = {"rdi", "rsi"};
+        std::vector<std::string> asm_args = {"rdi", "rsi", "rdx", "rcx"};
         std::vector<int> call_registers;
         std::reverse(funcCall_node->func_args.begin(), funcCall_node->func_args.end());
         int n = (int)funcCall_node->func_args.size();

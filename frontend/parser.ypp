@@ -80,7 +80,7 @@
 %token LP RP LCP RCP LQP RQP
 %token GREAT LESS EQ NEQ GEQ LEQ 
 %token AND OR NOT 
-%token SEMIC COMMA ASSIGN PRINT SCAN FUNC_ASSIGN
+%token SEMIC COMMA ASSIGN PRINT SCAN DCOL
 %token RET DEF 
 %token IF ELSE WHILE
 
@@ -114,7 +114,7 @@ stmt    : assign SEMIC { $$ = $1; }
         | return SEMIC { $$ = $1; }
         | func_def SEMIC {$$ = $1; };
         
-func_def    : DEF ID LP elems RP FUNC_ASSIGN LCP stmts RCP {
+func_def    : DEF ID LP elems RP DCOL LCP stmts RCP {
                 FuncState state;
                 MainNode* tmp = new MainNode(line_index, nullptr);
                 std::vector<ASTNode*> func_args = *$4;
@@ -167,7 +167,11 @@ else_stmt   : ELSE IF LP expr RP LCP stmts RCP else_stmt {
             };
 
 assign  : ID ASSIGN expr {
-            $$ = new AssignNode(line_index, *$1, $3, nullptr);
+            $$ = new AssignNode(line_index, *$1, VarType::_VAR_, $3, nullptr);
+            delete $1;
+        }
+        | ID DCOL expr {
+            $$ = new AssignNode(line_index, *$1, VarType::_CONST_, $3, nullptr);
             delete $1;
         }
         | ID LQP expr RQP ASSIGN expr {

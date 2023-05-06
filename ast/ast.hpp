@@ -19,12 +19,15 @@ enum Tag {
     _NEG_
 };
 
+enum VarType { _VAR_, _CONST_ };
+
 enum ArrayType { _STAT_, _DYN_ };
    
-enum ErrType { _OK_, _ERR_VAR_, _ERR_ARR_, _ERR_FUNC_EXIST_ };
+enum ErrType { _OK_, _ERR_VAR_, _ERR_ARR_, _ERR_FUNC_EXIST_, _ERR_CONST_ };
 
 typedef struct ProgState {
     std::unordered_map<std::string, int> vars;
+    std::unordered_map<std::string, int> consts;
     std::unordered_map<std::string, std::pair<int, ArrayType>> arrs;
     std::unordered_map<std::string, ASTNode*> funcs;
     int var_counter = 4;
@@ -37,6 +40,7 @@ typedef struct ProgState {
 
 typedef struct FuncState {
     std::unordered_map<std::string, int> vars;
+    std::unordered_map<std::string, int> consts;
     std::unordered_map<std::string, std::pair<int, ArrayType>> arrs;
     int var_counter = 4;
     int arrayDecl_loop = 0;
@@ -111,10 +115,12 @@ public:
 class AssignNode : public StatementNode {
 public:
     std::string var_name;
+    VarType assign_ty;
     ASTNode* assign_val;  
     AssignNode(
         int _line_index,
         std::string _var_name,
+        VarType _assign_ty,
         ASTNode* _assign_val,
         ASTNode* _next
     );
@@ -235,7 +241,7 @@ public:
     Result* traverse_func_tree(ASTNode* ptr, ProgState state);
     void print_func_asm(ASTNode* ptr);
 private:
-    std::vector<std::string> asm_args = {"rdi", "rsi"};
+    std::vector<std::string> asm_args = {"rdi", "rsi", "rdx", "rcx"};
 };
 
 Result* traverse_tree(ASTNode* ptr, ProgState* state);
