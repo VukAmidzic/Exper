@@ -170,23 +170,23 @@ int num_expr_eval(ASTNode* ptr, int res) {
 
 bool errResult(Result* tmp) {
     switch (tmp->err) {
-        case ErrType::_ERR_VAR_: {
+        case ErrType::_ERR_VAR_ : {
             return true; 
             break;
         }
-        case ErrType::_ERR_ARR_: {
+        case ErrType::_ERR_ARR_ : {
             return true; 
             break;
         }
-        case ErrType::_ERR_FUNC_EXIST_: {
+        case ErrType::_ERR_FUNC_EXIST_ : {
             return true; 
             break;
         }
-        case ErrType::_ERR_CONST_: {
+        case ErrType::_ERR_CONST_ : {
             return true; 
             break;
         }
-        default: {
+        default : {
             return false;
             break;
         }
@@ -326,8 +326,7 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
         return new Result(ErrType::_OK_, -1, "") ; 
     }
     else if (var_node) {
-        if (this->func_state.consts.find(var_node->var_name) == this->func_state.consts.end() && 
-            this->func_state.vars.find(var_node->var_name) == this->func_state.vars.end()) {
+        if (this->func_state.vars.find(var_node->var_name) == this->func_state.vars.end()) {
             return new Result(ErrType::_ERR_VAR_, var_node->line_index, "Variable '" + var_node->var_name + "' not defined!");
         }
     }
@@ -356,24 +355,27 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
         Result* val = traverse_func_tree(assign_node->assign_val, state);
         if (errResult(val)) return val;
         
-        if (assign_node->assign_ty == VarType::_CONST_) {
-            auto cst = this->func_state.consts.find(assign_node->var_name);
-            if (cst != this->func_state.consts.end()) {
-                return new Result(ErrType::_ERR_CONST_, assign_node->line_index, "Can't redefine const '" + assign_node->var_name + "'");
+        auto it = this->func_state.vars.find(assign_node->var_name);
+        switch (assign_node->assign_ty) {
+            case VarType::_VAR_ : {
+                if (it == this->func_state.vars.end()) {
+                    this->func_state.vars[assign_node->var_name] = this->func_state.var_counter;
+                    this->func_state.var_counter += VAR_STEP;
+                } 
+                break;
             }
-            else {
-                this->func_state.consts[assign_node->var_name] = this->func_state.var_counter;
-                this->func_state.var_counter += VAR_STEP;
+            case VarType::_CONST_ : {
+                if (it == this->func_state.vars.end()) {
+                    this->func_state.vars[assign_node->var_name] = this->func_state.var_counter;
+                    this->func_state.var_counter += VAR_STEP;
+                }
+                else {
+                    return new Result(ErrType::_ERR_CONST_, assign_node->line_index, "Can't redefine const '" + assign_node->var_name + "'!!");
+                }
+                break;
             }
+            default : {break;}
         }
-        else if (assign_node->assign_ty == VarType::_VAR_) {
-            auto it = this->func_state.vars.find(assign_node->var_name);
-            if (it == this->func_state.vars.end()) {
-                this->func_state.vars[assign_node->var_name] = this->func_state.var_counter;
-                this->func_state.var_counter += VAR_STEP;
-            }
-        }
-        
         Result* res = traverse_func_tree(assign_node->next, state);
         if (errResult(res)) return res;
     }
@@ -528,13 +530,7 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
         std::cout << "  mov rax, " << num_node->num << std::endl;
     }
     else if (var_node) {
-        auto it = this->func_state.vars.find(var_node->var_name);
-        if (it != this->func_state.vars.end()) {
-            std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * this->func_state.vars[var_node->var_name] << "]" << std::endl;
-        }
-        else {
-            std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * this->func_state.consts[var_node->var_name] << "]" << std::endl;
-        }
+        std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * this->func_state.vars[var_node->var_name] << "]" << std::endl;
     }
     else if (arrElem_node) {
         auto it = this->func_state.arrs.find(arrElem_node->arr_name);
@@ -976,8 +972,7 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
     
     if (num_node) { return new Result(ErrType::_OK_, -1, ""); }
     else if (var_node) { 
-        if (state->consts.find(var_node->var_name) == state->consts.end() && 
-            state->vars.find(var_node->var_name) == state->vars.end()) {
+        if (state->vars.find(var_node->var_name) == state->vars.end()) {
             return new Result(ErrType::_ERR_VAR_, var_node->line_index, "Variable '" + var_node->var_name + "' not defined!");
         }
     }
@@ -1006,24 +1001,27 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         Result* val = traverse_tree(assign_node->assign_val, state);
         if (errResult(val)) return val;
         
-        if (assign_node->assign_ty == VarType::_CONST_) {
-            auto cst = state->consts.find(assign_node->var_name);
-            if (cst != state->consts.end()) {
-                return new Result(ErrType::_ERR_CONST_, assign_node->line_index, "Can't redefine const '" + assign_node->var_name + "'");
+        auto it = state->vars.find(assign_node->var_name);
+        switch (assign_node->assign_ty) {
+            case VarType::_VAR_ : {
+                if (it == state->vars.end()) {
+                    state->vars[assign_node->var_name] = state->var_counter;
+                    state->var_counter += VAR_STEP;
+                } 
+                break;
             }
-            else {
-                state->consts[assign_node->var_name] = state->var_counter;
-                state->var_counter += VAR_STEP;
+            case VarType::_CONST_ : {
+                if (it == state->vars.end()) {
+                    state->vars[assign_node->var_name] = state->var_counter;
+                    state->var_counter += VAR_STEP;
+                }
+                else {
+                    return new Result(ErrType::_ERR_CONST_, assign_node->line_index, "Can't redefine const '" + assign_node->var_name + "'!!");
+                }
+                break;
             }
+            default : {break;}
         }
-        else {
-            auto it = state->vars.find(assign_node->var_name);
-            if (it == state->vars.end()) {
-                state->vars[assign_node->var_name] = state->var_counter;
-                state->var_counter += VAR_STEP;
-            }
-        }
-        
         Result* res = traverse_tree(assign_node->next, state);
         if (errResult(res)) return res;
     }
@@ -1207,13 +1205,7 @@ void print_asm(ASTNode* ptr, ProgState state) {
         std::cout << "  mov rax, " << num_node->num << std::endl;
     }
     else if (var_node) {
-        auto it = state.vars.find(var_node->var_name);
-        if (it != state.vars.end()) {
-            std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * state.vars[var_node->var_name] << "]" << std::endl;
-        }
-        else {
-            std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * state.consts[var_node->var_name] << "]" << std::endl;
-        }
+        std::cout << "  mov rax, QWORD PTR [rbp-" << 2 * state.vars[var_node->var_name] << "]" << std::endl;
     }
     else if (arrElem_node) {
         auto it = state.arrs.find(arrElem_node->arr_name);

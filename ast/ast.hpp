@@ -27,7 +27,6 @@ enum ErrType { _OK_, _ERR_VAR_, _ERR_ARR_, _ERR_FUNC_EXIST_, _ERR_CONST_ };
 
 typedef struct ProgState {
     std::unordered_map<std::string, int> vars;
-    std::unordered_map<std::string, int> consts;
     std::unordered_map<std::string, std::pair<int, ArrayType>> arrs;
     std::unordered_map<std::string, ASTNode*> funcs;
     int var_counter = 4;
@@ -40,7 +39,6 @@ typedef struct ProgState {
 
 typedef struct FuncState {
     std::unordered_map<std::string, int> vars;
-    std::unordered_map<std::string, int> consts;
     std::unordered_map<std::string, std::pair<int, ArrayType>> arrs;
     int var_counter = 4;
     int arrayDecl_loop = 0;

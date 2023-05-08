@@ -280,7 +280,7 @@ int main(int argc, char** argv) {
     yyparse();
     
     Result* res = traverse_tree(prog, &state);
-    if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_) {
+    if (res->err == ErrType::_ERR_VAR_ || res->err == ErrType::_ERR_ARR_ || res->err == ErrType::_ERR_FUNC_EXIST_ || res->err == ErrType::_ERR_CONST_) {
         std::cerr << "Error in " << argv[1] << ", line " << res->err_index << ":\n" << std::endl; 
 
         std::string err_line = trim(get_err_line(res->err_index, argv[1]));
