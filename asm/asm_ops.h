@@ -15,7 +15,7 @@ int64_t cmp_leq(int64_t a, int64_t b);
 int64_t cmp_geq(int64_t a, int64_t b);
 
 int64_t* dyn_malloc(int n, int val);
-void dyn_set(int64_t* arr, int64_t pos, int64_t val);
-int64_t dyn_get(int64_t* arr, int64_t pos);
+void set(int64_t* arr, int64_t pos, int64_t val);
+int64_t get(int64_t* arr, int64_t pos);
 
 #endif

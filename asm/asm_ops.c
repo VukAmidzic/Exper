@@ -29,6 +29,6 @@ int64_t* dyn_malloc(int n, int val) {
     return arr;
 };
 
-void dyn_set(int64_t* arr, int64_t pos, int64_t val) {arr[pos] = val;};
+void set(int64_t* arr, int64_t pos, int64_t val) {arr[pos] = val;};
 
-int64_t dyn_get(int64_t* arr, int64_t pos) {return arr[pos];};
+int64_t get(int64_t* arr, int64_t pos) {return arr[pos];};

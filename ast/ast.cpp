@@ -394,11 +394,17 @@ Result* FuncDef::traverse_func_tree(ASTNode* ptr, ProgState state) {
             else if (errResult(res)) return res;
         }
     }
-    else if (statArrDecl_node) {
+    else if (statArrDecl_node) { //cnt = 4, n = 3 ==> {8, 12, 16}
         auto it = this->func_state.arrs.find(statArrDecl_node->arr_name);
-        if (it == this->func_state.arrs.end()) { this->func_state.arrs[statArrDecl_node->arr_name] = {this->func_state.var_counter, _STAT_}; }
+        if (it == this->func_state.arrs.end()) { 
+            this->func_state.arrs[statArrDecl_node->arr_name] = {
+                this->func_state.var_counter + statArrDecl_node->arr_size*4, 
+                _STAT_
+            }; 
+        }
         
-        for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
+        int n = statArrDecl_node->arr_size;
+        for (int i = n-1; i >= 0; --i) {
             Result* val = traverse_func_tree(statArrDecl_node->arr_vals[i], state);
             
             if (errResult(val)) return val;
@@ -537,18 +543,16 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
         if (it != this->func_state.arrs.end()) {
             ArrayType ty = it->second.second;
             if (ty == ArrayType::_STAT_) {
+                std::cout << "  lea rdi, [rbp-" << 2*this->func_state.arrs[arrElem_node->arr_name].first-8 << "]" << std::endl;
                 print_func_asm(arrElem_node->elem_index);
-                std::cout << "  mov r8, -8" << std::endl;
-                std::cout << "  mul r8" << std::endl;
-                std::cout << "  sub rax, " << 2*this->func_state.arrs[arrElem_node->arr_name].first << std::endl;
-                std::cout << "  mov r9, rax" << std::endl;
-                std::cout << "  mov rax, QWORD PTR [rbp+r9]" << std::endl;
+                std::cout << "  mov rsi, rax" << std::endl;
+                std::cout << "  call get" << std::endl;
             }
             else if (ty == ArrayType::_DYN_) {
                 std::cout << "  mov rdi, QWORD PTR [rbp-" << 2*this->func_state.arrs[arrElem_node->arr_name].first << "]" << std::endl;
                 print_func_asm(arrElem_node->elem_index);
                 std::cout << "  mov rsi, rax" << std::endl;
-                std::cout << "  call dyn_get" << std::endl;
+                std::cout << "  call get" << std::endl;
             }
         }
     }
@@ -786,13 +790,12 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
         if (it != this->func_state.arrs.end()) { 
             ArrayType ty = it->second.second;
             if (ty == ArrayType::_STAT_) {
+                std::cout << "  lea rdi, [rbp-" << 2*this->func_state.arrs[arrElemAssign_node->arr_name].first << "]" << std::endl;
                 print_func_asm(arrElemAssign_node->elem_index);
-                std::cout << "  mov r8, -8" << std::endl;
-                std::cout << "  mul r8" << std::endl;
-                std::cout << "  sub rax, " << 2*this->func_state.arrs[arrElemAssign_node->arr_name].first << std::endl;
-                std::cout << "  mov r9, rax" << std::endl;
+                std::cout << "  mov rsi, rax" << std::endl;
                 print_func_asm(arrElemAssign_node->assign_val);
-                std::cout << "  mov QWORD PTR [rbp+r9], rax" << std::endl;
+                std::cout << "  mov rdx, rax" << std::endl;
+                std::cout << "  call set" << std::endl;
             }
             else if (ty == ArrayType::_DYN_) {
                 std::cout << "  mov rdi, QWORD PTR [rbp-" << 2*this->func_state.arrs[arrElemAssign_node->arr_name].first << "]" << std::endl;
@@ -800,7 +803,7 @@ void FuncDef::print_func_asm(ASTNode* ptr) {
                 std::cout << "  mov rsi, rax" << std::endl;
                 print_func_asm(arrElemAssign_node->assign_val);
                 std::cout << "  mov rdx, rax" << std::endl;
-                std::cout << "  call dyn_set" << std::endl;
+                std::cout << "  call set" << std::endl;
             }
             else { return; }
         }
@@ -1054,11 +1057,17 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
         Result* res = traverse_tree(scan_node->next, state);
         if (errResult(res)) return res;
     }
-    else if (statArrDecl_node) {
+    else if (statArrDecl_node) { 
         auto it = state->arrs.find(statArrDecl_node->arr_name);
-        if (it == state->arrs.end()) { state->arrs[statArrDecl_node->arr_name] = {state->var_counter, _STAT_}; }
+        if (it == state->arrs.end()) { 
+            state->arrs[statArrDecl_node->arr_name] = {
+                state->var_counter + statArrDecl_node->arr_size*4, 
+                _STAT_
+            }; 
+        }
         
-        for (int i = 0; i < statArrDecl_node->arr_size; ++i) {
+        int n = statArrDecl_node->arr_size;
+        for (int i = n-1; i >= 0; --i) {
             Result* val = traverse_tree(statArrDecl_node->arr_vals[i], state);
             
             if (errResult(val)) return val;
@@ -1212,18 +1221,16 @@ void print_asm(ASTNode* ptr, ProgState state) {
         if (it != state.arrs.end()) {
             ArrayType ty = it->second.second;
             if (ty == ArrayType::_STAT_) {
+                std::cout << "  lea rdi, [rbp-" << 2*state.arrs[arrElem_node->arr_name].first-8 << "]" << std::endl;
                 print_asm(arrElem_node->elem_index, state);
-                std::cout << "  mov r8, -8" << std::endl;
-                std::cout << "  mul r8" << std::endl;
-                std::cout << "  sub rax, " << 2*state.arrs[arrElem_node->arr_name].first << std::endl;
-                std::cout << "  mov r9, rax" << std::endl;
-                std::cout << "  mov rax, QWORD PTR [rbp+r9]" << std::endl;
+                std::cout << "  mov rsi, rax" << std::endl;
+                std::cout << "  call get" << std::endl;
             }
             else if (ty == ArrayType::_DYN_) {
                 std::cout << "  mov rdi, QWORD PTR [rbp-" << 2*state.arrs[arrElem_node->arr_name].first << "]" << std::endl;
                 print_asm(arrElem_node->elem_index, state);
                 std::cout << "  mov rsi, rax" << std::endl;
-                std::cout << "  call dyn_get" << std::endl;
+                std::cout << "  call get" << std::endl;
             }
         }
     }
@@ -1487,21 +1494,20 @@ void print_asm(ASTNode* ptr, ProgState state) {
         if (it != state.arrs.end()) { 
             ArrayType ty = it->second.second;
             if (ty == ArrayType::_STAT_) {
-                print_asm(arrElemAssign_node->elem_index, state);
-                std::cout << "  mov r8, -8" << std::endl;
-                std::cout << "  mul r8" << std::endl;
-                std::cout << "  sub rax, " << 2*state.arrs[arrElemAssign_node->arr_name].first << std::endl;
-                std::cout << "  mov r9, rax" << std::endl;
-                print_asm(arrElemAssign_node->assign_val, state);
-                std::cout << "  mov QWORD PTR [rbp+r9], rax" << std::endl;
-            }
-            else if (ty == ArrayType::_DYN_) {
-                std::cout << "  mov rdi, QWORD PTR [rbp-" << 2*state.arrs[arrElemAssign_node->arr_name].first << "]" << std::endl;
+                std::cout << "  lea rdi, [rbp-" << 2*state.arrs[arrElemAssign_node->arr_name].first-8 << "]" << std::endl;
                 print_asm(arrElemAssign_node->elem_index, state);
                 std::cout << "  mov rsi, rax" << std::endl;
                 print_asm(arrElemAssign_node->assign_val, state);
                 std::cout << "  mov rdx, rax" << std::endl;
-                std::cout << "  call dyn_set" << std::endl;
+                std::cout << "  call set" << std::endl;
+            }
+            else if (ty == ArrayType::_DYN_) {
+                std::cout << "  mov rdi, QWORD PTR [rbp-" << 2*state.arrs[arrElemAssign_node->arr_name].first-8 << "]" << std::endl;
+                print_asm(arrElemAssign_node->elem_index, state);
+                std::cout << "  mov rsi, rax" << std::endl;
+                print_asm(arrElemAssign_node->assign_val, state);
+                std::cout << "  mov rdx, rax" << std::endl;
+                std::cout << "  call set" << std::endl;
             }
             else { return; }
         }
