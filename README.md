@@ -30,13 +30,12 @@ This is a personal hobby-made language written in C++ together with Flex/Bison t
 - defining and calling functions
 
 ## Running the compiler
-
-First, type 
+First, run ``` ./install.sh ``` inside the ```Exper``` directory to install necessary executables. Then, type
 ```
-source build.sh
+source /bin/exp.sh
 ```
-This will create the parser. In order to run your code, you need to type a command that looks like 
+to make running command visible. Finally, you can type
 ```
-exp file_name.exp executable_name
+exp_run your_file.exp your_executable 
 ```
-This will run the parser and compiler and translate your program to assembly file, which will later on be translated to an executable file. At the end, you can run your program by typing ```./executable_name``` .
+to compile and run your code.
