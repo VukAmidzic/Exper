@@ -10,8 +10,6 @@
 main:
   push rbp
   mov rbp, rsp
-#SCANS: 16
-#VARS: 40
   sub rsp, 48
   mov rax, 0
   mov QWORD PTR [rbp-8], rax
@@ -127,5 +125,4 @@ main3:
 main0:
   leave
   ret
-
 

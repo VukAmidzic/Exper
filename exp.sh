@@ -12,8 +12,8 @@ exp_run () {
     
     if [[ -s "${2}.s" ]];
     then 
-        ASM_OPS= find /home -type f -name asm_ops.c 1>/dev/null
-        gcc $ASM_OPS -m64 -fno-pie -no-pie "${2}.s" -g -o $2
+        ASM_OPS=$(find /home -type f -name asm_ops.c)
+        gcc $ASM_OPS -m64 -fno-pie -no-pie "${2}.s" -g -o $2 2>/dev/null
         if [[ $? != 0 ]]; then
             echo "[ERROR] Compilation error"
         else 
