@@ -1,3 +1,9 @@
+/* This script demonstrates
+ * defining a function and 
+ * using it (here we calculate
+ * factorial of given number) 
+*/
+
 def fact(n) :: {
     if (n = 1) {ret 1;}
     else {

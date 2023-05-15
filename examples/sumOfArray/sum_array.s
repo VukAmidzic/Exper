@@ -10,8 +10,6 @@
 main:
   push rbp
   mov rbp, rsp
-#SCANS: 32
-#VARS: 32
   sub rsp, 32
   mov rax, 0
   mov QWORD PTR [rbp-8], rax
@@ -20,27 +18,11 @@ main:
   xor rax, rax
   call scanf
   mov rax, QWORD PTR [rbp-8]
-  mov rbx, rax
-  sal rax, 3
-  mov r12, 0
-  mov rdi, rax
-  call malloc
-  mov QWORD PTR [rbp-16], rax
-arr_loop0:
-  cmp r12, rbx
-  je arr_next0
-  mov rax, r12
-  mov r8, 8
-  mul r8
-  mov rdx, rax
-  mov rax, QWORD PTR [rbp-16]
-  add rax, rdx
   mov rdi, rax
   mov rax, 0
-  mov QWORD PTR [rdi], rax
-  inc r12
-  jmp arr_loop0
-arr_next0:
+  mov rsi, rax
+  call dyn_malloc
+  mov QWORD PTR [rbp-16], rax
   mov rax, 0
   mov QWORD PTR [rbp-24], rax
 loop0:
@@ -61,19 +43,16 @@ loop0:
   lea rsi, [rbp-32]
   xor rax, rax
   call scanf
+  mov rdi, QWORD PTR [rbp-16]
   mov rax, QWORD PTR [rbp-24]
-  mov r8, 8
-  mul r8
-  mov rdx, rax
-  mov rax, QWORD PTR [rbp-16]
-  add rax, rdx
-  mov rdi, rax
+  mov rsi, rax
   mov rax, QWORD PTR [rbp-32]
   push rax
   mov rax, QWORD PTR [rbp-32]
   pop rbx
   imul rax, rbx
-  mov QWORD PTR [rdi], rax
+  mov rdx, rax
+  call set
   mov rax, QWORD PTR [rbp-24]
   push rax
   mov rax, 1
@@ -96,14 +75,10 @@ loop1:
   call cmp_less
   cmp rax, 0
   je main1
+  mov rdi, QWORD PTR [rbp-16]
   mov rax, QWORD PTR [rbp-24]
-  mov r8, 8
-  mul r8
-  mov rdx, rax
-  mov rax, QWORD PTR [rbp-16]
-  add rax, rdx
-  mov rdi, rax
-  mov rax, QWORD PTR [rdi]
+  mov rsi, rax
+  call get
   lea rdi, print_format
   mov rsi, rax
   xor rax, rax
@@ -118,5 +93,4 @@ loop1:
 main1:
   leave
   ret
-
 

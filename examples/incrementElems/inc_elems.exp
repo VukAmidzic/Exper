@@ -1,4 +1,9 @@
-def inc(n) {
+/* This script increments 
+ * each element of array using 
+ * a user-defined function
+*/
+
+def inc(n) :: {
     ret n + 1;
 };
 

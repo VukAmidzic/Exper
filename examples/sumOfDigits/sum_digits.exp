@@ -1,3 +1,7 @@
+/*  This script prints the sum of 
+ *  digits of given number
+*/
+
 number := 0;
 scan(number);
 

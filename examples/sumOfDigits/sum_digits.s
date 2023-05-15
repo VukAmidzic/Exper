@@ -1,9 +1,16 @@
 .intel_syntax noprefix
+
+.data
+  print_format: .asciz "%ld\n"
+  scan_format: .asciz "%ld"
+
 .text
 
 .global main
 main:
-  enter 32, 0
+  push rbp
+  mov rbp, rsp
+  sub rsp, 32
   mov rax, 0
   mov QWORD PTR [rbp-8], rax
   lea rdi, scan_format
@@ -63,7 +70,3 @@ main0:
   leave
   ret
 
-
-.data
-  print_format: .asciz "%ld\n"
-  scan_format: .asciz "%ld"

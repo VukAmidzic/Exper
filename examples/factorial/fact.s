@@ -1,5 +1,3 @@
-#fact has 1 args
-#NUMBER OF FUNCS: 1
 .intel_syntax noprefix
 
 .data
@@ -12,9 +10,10 @@
 fact:
   push rbp
   mov rbp, rsp
-  sub rsp,8
-if0:
-  mov rax, rdi
+  sub rsp, 16
+  mov QWORD PTR [rbp-8], rdi
+fact_if0:
+  mov rax, QWORD PTR [rbp-8]
   push rax
   mov rax, 1
   push rax
@@ -24,14 +23,13 @@ if0:
   mov rsi, rbx
   call cmp_eq
   cmp rax, 1
-  je cond0
-  jmp cond1
-cond0:
+  je fact_cond0
+  jmp fact_cond1
+fact_cond0:
   mov rax, 1
-  jmp main0
-cond1:
-  push rdi
-  mov rax, rdi
+  jmp fact_main0
+fact_cond1:
+  mov rax, QWORD PTR [rbp-8]
   push rax
   mov rax, 1
   push rax
@@ -40,15 +38,14 @@ cond1:
   sub rax, rbx
   mov rdi, rax
   call fact
-  pop rdi
   push rax
-  mov rax, rdi
+  mov rax, QWORD PTR [rbp-8]
   pop rbx
   imul rax, rbx
-  mov QWORD PTR [rbp-8], rax
-  mov rax, QWORD PTR [rbp-8]
-  jmp main0
-main0:
+  mov QWORD PTR [rbp-16], rax
+  mov rax, QWORD PTR [rbp-16]
+  jmp fact_main0
+fact_main0:
   leave
   ret
 

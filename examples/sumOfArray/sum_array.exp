@@ -1,6 +1,6 @@
-/*  This script creates an array of 
-    n input elements and outputs
-    square of every element
+/* This script creates an array of 
+ * n input elements and outputs
+ * square of every element
 */
 
 n := 0;

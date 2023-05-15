@@ -1178,8 +1178,6 @@ Result* traverse_tree(ASTNode* ptr, ProgState* state) {
     else if (funcCall_node) {
         auto name = state->funcs.find(funcCall_node->func_name);
         
-        std::cout << "#" << funcCall_node->func_name << "->" << (name == state->funcs.end()) << std::endl;
-        
         if (name == state->funcs.end()) {
             return new Result(ErrType::_ERR_FUNC_EXIST_, funcCall_node->line_index, "Function '" + funcCall_node->func_name + "' not defined!");
         }
@@ -1494,7 +1492,7 @@ void print_asm(ASTNode* ptr, ProgState state) {
         if (it != state.arrs.end()) { 
             ArrayType ty = it->second.second;
             if (ty == ArrayType::_STAT_) {
-                std::cout << "  lea rdi, [rbp-" << 2*state.arrs[arrElemAssign_node->arr_name].first-8 << "]" << std::endl;
+                std::cout << "  lea rdi, [rbp-" << 2*state.arrs[arrElemAssign_node->arr_name].first << "]" << std::endl;
                 print_asm(arrElemAssign_node->elem_index, state);
                 std::cout << "  mov rsi, rax" << std::endl;
                 print_asm(arrElemAssign_node->assign_val, state);
@@ -1502,7 +1500,7 @@ void print_asm(ASTNode* ptr, ProgState state) {
                 std::cout << "  call set" << std::endl;
             }
             else if (ty == ArrayType::_DYN_) {
-                std::cout << "  mov rdi, QWORD PTR [rbp-" << 2*state.arrs[arrElemAssign_node->arr_name].first-8 << "]" << std::endl;
+                std::cout << "  mov rdi, QWORD PTR [rbp-" << 2*state.arrs[arrElemAssign_node->arr_name].first << "]" << std::endl;
                 print_asm(arrElemAssign_node->elem_index, state);
                 std::cout << "  mov rsi, rax" << std::endl;
                 print_asm(arrElemAssign_node->assign_val, state);
